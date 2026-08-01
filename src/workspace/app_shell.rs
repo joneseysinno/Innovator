@@ -11,6 +11,7 @@ pub mod handle_value_changed;
 pub mod handle_workspace_signal;
 pub mod layout_areas;
 pub mod new;
+pub mod open_workspace;
 pub mod rebuild_active;
 pub mod rebuild_seams;
 pub mod resumed;

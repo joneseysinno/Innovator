@@ -5,7 +5,7 @@ pub enum WorkspaceKind {
     Analysis,
     /// Project Management
     PM,
-    ///Home dashboard
+    /// Home dashboard
     Home,
     /// Stub workspace with no header (demo tab).
     Empty,

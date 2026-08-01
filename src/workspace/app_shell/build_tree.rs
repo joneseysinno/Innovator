@@ -1,8 +1,10 @@
 use crate::workspace::analysis::build_pages::build_pages;
 use crate::workspace::app_shell::AppShell;
-use crate::workspace::empty::build_content::build_content;
+use crate::workspace::empty::build_content::build_content as build_empty;
+use crate::workspace::home::build_content::build_content as build_home;
 use crate::workspace::instance::WorkspaceInstance;
 use crate::workspace::kind::WorkspaceKind;
+use crate::workspace::pm::build_content::build_content as build_pm;
 use crate::workspace::tab_strip::build_tab_strip;
 use hyper_ui::particles::{Particle, StackParticle, SurfaceParticle};
 
@@ -27,12 +29,18 @@ pub fn build_tree(shell: &mut AppShell) -> Particle {
             if let Some(WorkspaceInstance::Analysis(ws)) = shell.active_mut() {
                 build_pages(ws)
             } else {
-                build_content()
+                build_empty()
             }
         }
-        Some(WorkspaceKind::Empty | WorkspaceKind::PM | WorkspaceKind::Home) | None => {
-            build_content()
+        Some(WorkspaceKind::Home) => {
+            if let Some(WorkspaceInstance::Home(ws)) = shell.active_mut() {
+                build_home(ws)
+            } else {
+                build_empty()
+            }
         }
+        Some(WorkspaceKind::PM) => build_pm(),
+        Some(WorkspaceKind::Empty) | None => build_empty(),
     };
     column.push(body);
 
@@ -56,6 +64,8 @@ pub fn build_tree(shell: &mut AppShell) -> Particle {
 pub fn body_for(instance: &mut WorkspaceInstance) -> Particle {
     match instance {
         WorkspaceInstance::Analysis(ws) => build_pages(ws),
-        WorkspaceInstance::Empty(_) => build_content(),
+        WorkspaceInstance::Home(ws) => build_home(ws),
+        WorkspaceInstance::Pm(_) => build_pm(),
+        WorkspaceInstance::Empty(_) => build_empty(),
     }
 }

@@ -1,8 +1,12 @@
+use crate::workspace::kind::WorkspaceKind;
 use crate::workspace::workspace_id::WorkspaceId;
 
-/// App-level chrome signals (tab strip), not workspace header actions.
+/// App-level chrome signals (tab strip + Home dashboard), not workspace header actions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AppSignal {
     SelectWorkspace(WorkspaceId),
+    /// `+` on the tab strip — always adds Structural Analysis.
     AddWorkspace,
+    /// Focus an existing tab of this kind, or create one.
+    OpenWorkspace(WorkspaceKind),
 }

@@ -145,6 +145,11 @@ pub(crate) fn window_event(
                 .and_then(|a| a.header())
                 .map(|h| h.triggers.clone())
                 .unwrap_or_default();
+            let home_actions = shell
+                .active()
+                .and_then(|a| a.home_actions())
+                .cloned()
+                .unwrap_or_default();
             let wall_sinks = shell
                 .active()
                 .and_then(|a| a.wall_sinks())
@@ -262,6 +267,8 @@ pub(crate) fn window_event(
                     match ev {
                         UiEvent::TriggerFired(id) => {
                             if let Some(sig) = tab_triggers.get(&id).copied() {
+                                app_signal = Some(sig);
+                            } else if let Some(sig) = home_actions.get(&id).copied() {
                                 app_signal = Some(sig);
                             } else if let Some(sig) = header_triggers.get(&id).copied() {
                                 ws_signal = Some(sig);
