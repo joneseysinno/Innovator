@@ -1,0 +1,52 @@
+[package]
+name        = "innovator"
+version     = "0.1.0"
+edition     = "2024"
+description = "Spatial hypergraph engineering platform"
+
+[[bin]]
+name = "innovator"
+path = "src/main.rs"
+
+[dependencies]
+hyper-ui    = { workspace = true }
+hypernode   = { workspace = true }
+infinite-db = { workspace = true }
+winit       = { workspace = true }
+pollster    = { workspace = true }
+flume       = { workspace = true }
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+
+[workspace]
+resolver = "3"
+members  = [
+    ".",
+    "crates/hyper-ui",
+    "crates/hypernode",
+    "crates/p2p-swarm",
+]
+
+[workspace.dependencies]
+# local publishable crates
+hyper-ui  = { path = "crates/hyper-ui",  version = "0.1.0" }
+hypernode = { path = "crates/hypernode", version = "0.1.0" }
+p2p-swarm = { path = "crates/p2p-swarm", version = "0.1.0" }
+
+# crates.io — used as published versions
+infinite-db  = "0.2"     # already on crates.io · do not add to crates/
+
+# shared external dependencies
+# glyphon 0.12 tracks wgpu 30 (plan listed 0.7 which targets older wgpu)
+wgpu         = "30"
+winit        = "0.30"
+glyphon      = "0.12"
+bytemuck     = { version = "1", features = ["derive"] }
+cosmic-text  = "0.19"
+flume        = "0.11"
+dashmap      = "6"
+tokio        = { version = "1", features = ["full"] }
+pollster     = "0.4"
+bitvec       = "1"
+log          = "0.4"
+env_logger   = "0.11"

@@ -1,0 +1,16 @@
+[package]
+name        = "hypernode"
+version     = "0.1.0"
+edition     = "2024"
+description = "HyperNode trait and Hilbert spatial indexing for hypergraph applications"
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/yourname/innovator"
+keywords    = ["hypergraph", "hilbert", "spatial", "graph"]
+categories  = ["data-structures"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[[example]]
+name = "graph"
+path = "examples/graph.rs"

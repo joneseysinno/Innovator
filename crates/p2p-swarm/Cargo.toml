@@ -1,0 +1,16 @@
+[package]
+name        = "p2p-swarm"
+version     = "0.1.0"
+edition     = "2024"
+description = "P2P transport for spatial hypergraph applications"
+license     = "MIT OR Apache-2.0"
+repository  = "https://github.com/yourname/innovator"
+keywords    = ["p2p", "networking"]
+categories  = ["network-programming"]
+
+[dependencies]
+tokio.workspace = true
+
+[[example]]
+name = "peer"
+path = "examples/peer.rs"

@@ -1,0 +1,12 @@
+/target
+**/target
+Cargo.lock
+*.db
+*.db-*
+.DS_Store
+*.pdb
+.idea/
+.vscode/
+*.swp
+*.swo
+innovator.db/
