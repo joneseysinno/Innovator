@@ -1,4 +1,4 @@
-use crate::workspace::analysis_action::AnalysisAction;
+use super::action::AnalysisAction;
 
 /// Draft values while the inline FieldBuilderIO is open.
 #[derive(Debug, Clone)]

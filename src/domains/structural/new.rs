@@ -1,11 +1,11 @@
 use super::kind::AnalysisKind;
 use super::templates::initial_page_tree;
-use super::AnalysisWorkspace;
+use super::workspace::StructuralWorkspace;
 use crate::engine::AnalysisOutput;
 use crate::results::{load_results_for_wall, parse_checks};
 use crate::walls::load_walls;
+use crate::domains::structural::StructuralDescriptor;
 use crate::workspace::header::build_header;
-use crate::workspace::kind::WorkspaceKind;
 use crate::workspace::size_class::SizeClass;
 use crate::workspace::tab::WorkspaceTab;
 use crate::workspace::workspace_id::WorkspaceId;
@@ -14,7 +14,7 @@ use hypernode::{HyperNode, PropValue};
 use infinite_db::InfiniteDb;
 use std::collections::HashMap;
 
-impl AnalysisWorkspace {
+impl StructuralWorkspace {
     pub fn new(id: WorkspaceId, db: &mut InfiniteDb) -> Self {
         let graph = load_walls(db);
         let active_wall = graph.nodes.keys().next().copied();
@@ -24,7 +24,12 @@ impl AnalysisWorkspace {
         };
         let (page_tree, page_ios) = initial_page_tree();
         Self {
-            tab: WorkspaceTab::new(id, WorkspaceKind::Analysis),
+            tab: WorkspaceTab::new(
+                id,
+                StructuralDescriptor::KIND_ID,
+                StructuralDescriptor::LABEL,
+                StructuralDescriptor::ICON,
+            ),
             header: Some(build_header()),
             page_tree,
             page_ios,

@@ -1,14 +1,14 @@
 use super::build_icon_rail::{build_icon_rail, default_pod_icons};
 use super::build_page_header::{build_analysis_page_header, build_split_only_header};
 use super::io_kind::IoKind;
-use super::AnalysisWorkspace;
+use super::workspace::StructuralWorkspace;
 use crate::pages::{build_analysis, build_navigation, build_results};
 use crate::pages::placeholder::build_empty_pod;
 use hyper_ui::particles::{Particle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle};
 use hyper_ui::{IconRailSide, PageHeaderSlots, PageId, PageNode, PodId};
 
 /// Page region particle for an Analysis workspace — one child per PageTree leaf.
-pub fn build_pages(ws: &mut AnalysisWorkspace) -> Particle {
+pub fn build_pages(ws: &mut StructuralWorkspace) -> Particle {
     ws.icon_rail_triggers.clear();
     ws.pod_collapse_triggers.clear();
     ws.page_split_triggers.clear();
@@ -32,7 +32,7 @@ pub fn build_pages(ws: &mut AnalysisWorkspace) -> Particle {
 }
 
 fn build_one_page(
-    ws: &mut AnalysisWorkspace,
+    ws: &mut StructuralWorkspace,
     page: &PageNode,
     ios: &[(hyper_ui::PodId, IoKind)],
 ) -> Particle {
@@ -93,7 +93,7 @@ fn build_one_page(
 
 /// Wrap each pod child with a clickable title bar that toggles collapse.
 fn wrap_pods_with_title_bars(
-    ws: &mut AnalysisWorkspace,
+    ws: &mut StructuralWorkspace,
     page: &PageNode,
     content: Particle,
 ) -> Particle {
@@ -124,7 +124,7 @@ fn wrap_pods_with_title_bars(
 }
 
 fn build_page_content(
-    ws: &mut AnalysisWorkspace,
+    ws: &mut StructuralWorkspace,
     ios: &[(hyper_ui::PodId, IoKind)],
 ) -> Particle {
     let kinds: Vec<IoKind> = ios.iter().map(|(_, k)| *k).collect();
@@ -144,7 +144,7 @@ fn build_page_content(
     }
 }
 
-fn build_single_io(ws: &mut AnalysisWorkspace, kind: IoKind) -> Particle {
+fn build_single_io(ws: &mut StructuralWorkspace, kind: IoKind) -> Particle {
     match kind {
         IoKind::WallList => {
             let list = crate::pages::navigation::wall_list::build_wall_list(

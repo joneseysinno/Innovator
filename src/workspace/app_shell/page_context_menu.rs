@@ -1,4 +1,4 @@
-use crate::workspace::analysis::PageSignal;
+use crate::domains::structural::PageSignal;
 use hyper_ui::particles::{
     Particle, ParticleId, StackParticle, SurfaceParticle, TriggerParticle,
 };

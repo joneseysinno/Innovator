@@ -2,7 +2,7 @@ pub mod analysis_page;
 pub mod navigation_page;
 pub mod results_page;
 
-use crate::workspace::analysis::io_kind::IoKind;
+use super::io_kind::IoKind;
 use hyper_ui::{PageId, PageNode, PageTree, PodId, SeamDirection};
 
 /// Initial three-page workspace layout matching the prior monolithic pod tree ratios.

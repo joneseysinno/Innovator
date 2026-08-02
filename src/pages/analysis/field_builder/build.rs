@@ -1,7 +1,8 @@
 use super::FieldBuilderIO;
 use crate::components::{engineer_input, engineer_text_input};
-use crate::workspace::analysis_action::AnalysisAction;
-use crate::workspace::field_builder_draft::{BuilderFieldSlot, CustomFieldKind, FieldBuilderDraft};
+use crate::domains::structural::{
+    AnalysisAction, BuilderFieldSlot, CustomFieldKind, FieldBuilderDraft,
+};
 use hyper_ui::particles::{
     Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle,
 };

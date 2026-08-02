@@ -1,6 +1,7 @@
-use super::HomeWorkspace;
+use super::workspace::HomeWorkspace;
+use crate::domains::pm::PmDescriptor;
+use crate::domains::structural::StructuralDescriptor;
 use crate::workspace::app_signal::AppSignal;
-use crate::workspace::kind::WorkspaceKind;
 use hyper_ui::particles::{
     Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle,
 };
@@ -13,14 +14,14 @@ pub fn build_content(ws: &mut HomeWorkspace) -> Particle {
     let title = SourceParticle::new("Innovator").with_weight(500);
     let subtitle = SourceParticle::secondary("Home dashboard — open a workspace to begin");
 
-    let analysis = TriggerParticle::primary(WorkspaceKind::Analysis.default_title());
+    let analysis = TriggerParticle::primary(StructuralDescriptor::LABEL);
     actions.insert(
         analysis.id,
-        AppSignal::OpenWorkspace(WorkspaceKind::Analysis),
+        AppSignal::OpenWorkspace(StructuralDescriptor::KIND_ID),
     );
 
-    let pm = TriggerParticle::new(WorkspaceKind::PM.default_title());
-    actions.insert(pm.id, AppSignal::OpenWorkspace(WorkspaceKind::PM));
+    let pm = TriggerParticle::new(PmDescriptor::LABEL);
+    actions.insert(pm.id, AppSignal::OpenWorkspace(PmDescriptor::KIND_ID));
 
     let actions_row = StackParticle::row(vec![
         Particle::Trigger(analysis),

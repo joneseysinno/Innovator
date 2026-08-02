@@ -1,31 +1,24 @@
-//! Analysis workspace (optional header + page tree of spatial containers).
-//! Hosts many analysis types over time; starts with special concrete wall.
+//! Structural analysis workspace (optional header + page tree of spatial containers).
 
-pub mod build_icon_rail;
-pub mod build_page_header;
-pub mod build_pages;
-pub mod io_kind;
-pub mod kind;
-pub mod new;
-pub mod page_signal;
-pub mod templates;
-
-pub use io_kind::IoKind;
-pub use kind::AnalysisKind;
-pub use page_signal::PageSignal;
-
+use super::action::AnalysisAction;
+use super::build_pages;
+use super::field_builder_draft::{BuilderFieldSlot, FieldBuilderDraft};
+use super::io_kind::IoKind;
+use super::kind::AnalysisKind;
+use super::KIND_ID;
 use crate::engine::AnalysisOutput;
-use crate::workspace::analysis_action::AnalysisAction;
-use crate::workspace::field_builder_draft::{BuilderFieldSlot, FieldBuilderDraft};
+use crate::workspace::facade::{HandleResult, WorkspaceFacade};
 use crate::workspace::header::WorkspaceHeader;
 use crate::workspace::signal::WorkspaceSignal;
 use crate::workspace::size_class::SizeClass;
 use crate::workspace::tab::WorkspaceTab;
+use hyper_ui::particles::Particle;
 use hyper_ui::{InMemoryWorldSpatial, PageId, PageTree, ParticleId, PodId};
 use hypernode::{Graph, Node, NodeId};
+use std::any::Any;
 use std::collections::HashMap;
 
-pub struct AnalysisWorkspace {
+pub struct StructuralWorkspace {
     pub tab: WorkspaceTab,
     /// Action header — present for this workspace kind.
     pub header: Option<WorkspaceHeader>,
@@ -81,7 +74,7 @@ pub struct AnalysisWorkspace {
     pub analysis_header_status_id: Option<ParticleId>,
 }
 
-impl AnalysisWorkspace {
+impl StructuralWorkspace {
     pub fn status_id(&self) -> Option<hyper_ui::ParticleId> {
         self.header.as_ref().map(|h| h.status_id)
     }
@@ -106,5 +99,53 @@ impl AnalysisWorkspace {
             }
         }
         None
+    }
+}
+
+impl WorkspaceFacade for StructuralWorkspace {
+    fn tab(&self) -> &WorkspaceTab {
+        &self.tab
+    }
+
+    fn kind_id(&self) -> &'static str {
+        KIND_ID
+    }
+
+    fn header(&self) -> Option<&WorkspaceHeader> {
+        self.header.as_ref()
+    }
+
+    fn status_id(&self) -> Option<ParticleId> {
+        self.header.as_ref().map(|h| h.status_id)
+    }
+
+    fn page_tree(&self) -> Option<&PageTree> {
+        Some(&self.page_tree)
+    }
+
+    fn page_tree_mut(&mut self) -> Option<&mut PageTree> {
+        Some(&mut self.page_tree)
+    }
+
+    fn build_content(&mut self) -> Particle {
+        build_pages::build_pages(self)
+    }
+
+    fn handle_workspace_signal(
+        &mut self,
+        signal: WorkspaceSignal,
+        _db: &mut infinite_db::InfiniteDb,
+        _signal_tx: &flume::Sender<String>,
+    ) -> HandleResult {
+        let _ = signal;
+        HandleResult::Ignored
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

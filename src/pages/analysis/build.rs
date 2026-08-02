@@ -1,10 +1,10 @@
 use super::input_form::build_input_form;
 use super::wall_view::build_wall_view;
-use crate::workspace::analysis::AnalysisWorkspace;
+use crate::domains::structural::StructuralWorkspace;
 use hyper_ui::particles::{Particle, StackParticle};
 
 /// Build the Analysis page (InputForm | WallView) and wire interaction maps.
-pub fn build_analysis(ws: &mut AnalysisWorkspace) -> Particle {
+pub fn build_analysis(ws: &mut StructuralWorkspace) -> Particle {
     let node = ws
         .active_wall
         .and_then(|id| ws.graph.nodes.get(&id))

@@ -11,8 +11,8 @@ use super::rebuild_seams::rebuild_seams;
 use super::sync_chrome_layouts::sync_chrome_layouts;
 use super::sync_from_page_tree::sync_from_page_tree;
 use super::AppShell;
-use crate::workspace::analysis::IoKind;
-use crate::workspace::instance::WorkspaceInstance;
+use crate::domains::home::HomeWorkspace;
+use crate::domains::structural::{IoKind, StructuralWorkspace};
 use crate::workspace::screen_class::ScreenClass;
 use crate::workspace::signal::WorkspaceSignal;
 use crate::workspace::size_class::SizeClass;
@@ -65,13 +65,13 @@ pub(crate) fn window_event(
 
             let spatial = shell
                 .active()
-                .and_then(|a| a.wall_spatial())
-                .cloned()
+                .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>())
+                .map(|ws| ws.wall_spatial.clone())
                 .unwrap_or_default();
 
             let wall_view_rect = shell
                 .active()
-                .and_then(|a| a.analysis())
+                .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>())
                 .and_then(|ws| ws.io_rect(pages_area, IoKind::WallView));
 
             // Take renderer so we can sync from analysis without dual borrows.
@@ -89,7 +89,10 @@ pub(crate) fn window_event(
             renderer.ui.layout(window_area);
             if let Some(root) = renderer.ui.tree.root.as_mut() {
                 sync_chrome_layouts(root, window_area, has_header);
-                if let Some(WorkspaceInstance::Analysis(ws)) = shell.active() {
+                if let Some(ws) = shell
+                    .active()
+                    .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>())
+                {
                     sync_from_page_tree(root, ws, pages_area);
                 }
                 if let Some(menu) = pending_menu.as_ref() {
@@ -139,58 +142,35 @@ pub(crate) fn window_event(
                 .unwrap_or_default();
             let home_actions = shell
                 .active()
-                .and_then(|a| a.home_actions())
-                .cloned()
+                .and_then(|a| a.as_any().downcast_ref::<HomeWorkspace>())
+                .map(|ws| ws.actions.clone())
                 .unwrap_or_default();
-            let wall_sinks = shell
+            let analysis = shell
                 .active()
-                .and_then(|a| a.wall_sinks())
-                .cloned()
+                .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>());
+            let wall_sinks = analysis.map(|ws| ws.wall_sinks.clone()).unwrap_or_default();
+            let nav_triggers = analysis.map(|ws| ws.nav_triggers.clone()).unwrap_or_default();
+            let results_triggers = analysis
+                .map(|ws| ws.results_triggers.clone())
                 .unwrap_or_default();
-            let nav_triggers = shell
-                .active()
-                .and_then(|a| a.nav_triggers())
-                .cloned()
+            let analysis_actions = analysis
+                .map(|ws| ws.analysis_actions.clone())
                 .unwrap_or_default();
-            let results_triggers = shell
-                .active()
-                .and_then(|a| a.results_triggers())
-                .cloned()
+            let promote_props = analysis
+                .map(|ws| ws.promote_props.clone())
                 .unwrap_or_default();
-            let analysis_actions = shell
-                .active()
-                .and_then(|a| a.analysis_actions())
-                .cloned()
+            let field_props = analysis.map(|ws| ws.field_props.clone()).unwrap_or_default();
+            let builder_slots = analysis
+                .map(|ws| ws.builder_slots.clone())
                 .unwrap_or_default();
-            let promote_props = shell
-                .active()
-                .and_then(|a| a.promote_props())
-                .cloned()
-                .unwrap_or_default();
-            let field_props = shell
-                .active()
-                .and_then(|a| a.field_props())
-                .cloned()
-                .unwrap_or_default();
-            let builder_slots = shell
-                .active()
-                .and_then(|a| a.builder_slots())
-                .cloned()
-                .unwrap_or_default();
-            let wall_view_sink = shell.active().and_then(|a| a.wall_view_sink());
-            let icon_rail_triggers = shell
-                .active()
-                .and_then(|a| a.analysis())
+            let wall_view_sink = analysis.and_then(|ws| ws.wall_view_sink);
+            let icon_rail_triggers = analysis
                 .map(|ws| ws.icon_rail_triggers.clone())
                 .unwrap_or_default();
-            let pod_collapse_triggers = shell
-                .active()
-                .and_then(|a| a.analysis())
+            let pod_collapse_triggers = analysis
                 .map(|ws| ws.pod_collapse_triggers.clone())
                 .unwrap_or_default();
-            let page_split_triggers = shell
-                .active()
-                .and_then(|a| a.analysis())
+            let page_split_triggers = analysis
                 .map(|ws| ws.page_split_triggers.clone())
                 .unwrap_or_default();
             let context_menu_triggers = shell.context_menu_triggers.clone();
@@ -220,7 +200,7 @@ pub(crate) fn window_event(
                     .unwrap_or(Vec2::ZERO);
                 let over_view = shell
                     .active()
-                    .and_then(|a| a.analysis())
+                    .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>())
                     .and_then(|ws| ws.io_rect(pages_area, IoKind::WallView));
                 if let Some(view_rect) = over_view {
                     if view_rect.contains(cursor) {
@@ -330,7 +310,7 @@ pub(crate) fn window_event(
                                 icon_rail_triggers.get(&id).copied()
                             {
                                 page_signal =
-                                    Some(crate::workspace::analysis::PageSignal::ScrollToPod {
+                                    Some(crate::domains::structural::PageSignal::ScrollToPod {
                                         page_id,
                                         pod_id,
                                     });
@@ -341,7 +321,7 @@ pub(crate) fn window_event(
                                 let direction =
                                     split_direction_for_page(shell, pages_area, page_id);
                                 page_signal =
-                                    Some(crate::workspace::analysis::PageSignal::SplitPage {
+                                    Some(crate::domains::structural::PageSignal::SplitPage {
                                         page_id,
                                         direction,
                                     });
@@ -370,14 +350,20 @@ pub(crate) fn window_event(
 
             // Apply page seam ratio mutations, then rebuild seam draw lists.
             if let Some((idx, act)) = page_ratio_action {
-                if let Some(ws) = shell.active_mut().and_then(|a| a.analysis_mut()) {
+                if let Some(ws) = shell
+                    .active_mut()
+                    .and_then(|a| a.as_any_mut().downcast_mut::<StructuralWorkspace>())
+                {
                     match act {
                         SeamRatioAction::Set(r) => ws.page_tree.set_ratio_index(idx, r),
                         SeamRatioAction::Reset => ws.page_tree.reset_ratio_index(idx),
                     }
                 }
                 if let Some(mut renderer) = shell.renderer.take() {
-                    if let Some(ws) = shell.active().and_then(|a| a.analysis()) {
+                    if let Some(ws) = shell
+                        .active()
+                        .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>())
+                    {
                         rebuild_seams(ws, pages_area, &mut renderer);
                         renderer.ui.page_seams.mark_dragging(idx);
                     }
@@ -388,7 +374,10 @@ pub(crate) fn window_event(
 
             if !pod_divider_events.is_empty() {
                 let mut changed = false;
-                if let Some(ws) = shell.active_mut().and_then(|a| a.analysis_mut()) {
+                if let Some(ws) = shell
+                    .active_mut()
+                    .and_then(|a| a.as_any_mut().downcast_mut::<StructuralWorkspace>())
+                {
                     for ev in &pod_divider_events {
                         match ev {
                             UiEvent::PodCollapse { id } => {
@@ -435,7 +424,10 @@ pub(crate) fn window_event(
                 }
                 if changed {
                     if let Some(mut renderer) = shell.renderer.take() {
-                        if let Some(ws) = shell.active().and_then(|a| a.analysis()) {
+                        if let Some(ws) = shell
+                            .active()
+                            .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>())
+                        {
                             rebuild_seams(ws, pages_area, &mut renderer);
                         }
                         shell.renderer = Some(renderer);
@@ -536,7 +528,10 @@ fn split_direction_for_page(
     pages_area: Rect,
     page_id: hyper_ui::PageId,
 ) -> SeamDirection {
-    let Some(ws) = shell.active().and_then(|a| a.analysis()) else {
+    let Some(ws) = shell
+        .active()
+        .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>())
+    else {
         return SeamDirection::Vertical;
     };
     let rect = ws
@@ -560,7 +555,10 @@ fn apply_wall_view_pointer(shell: &mut AppShell, kind: PointerKind, pos: Vec2) {
     let mut pan_delta = None;
     let mut zoom = None;
     {
-        let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] else {
+        let Some(ws) = shell.workspaces[idx]
+            .as_any_mut()
+            .downcast_mut::<StructuralWorkspace>()
+        else {
             return;
         };
         match kind {
@@ -600,15 +598,18 @@ fn maybe_update_size_class(shell: &mut AppShell) {
     let pages_area = shell.pages_area;
     let width = shell
         .active()
-        .and_then(|a| a.analysis())
+        .and_then(|a| a.as_any().downcast_ref::<StructuralWorkspace>())
         .and_then(|ws| ws.io_rect(pages_area, IoKind::InputForm))
         .map(|r| r.size.x);
     let Some(width) = width else {
         return;
     };
     let new_class = SizeClass::from_width(width);
-    let changed = match shell.active_mut() {
-        Some(WorkspaceInstance::Analysis(ws)) if ws.input_size_class != new_class => {
+    let changed = match shell
+        .active_mut()
+        .and_then(|a| a.as_any_mut().downcast_mut::<StructuralWorkspace>())
+    {
+        Some(ws) if ws.input_size_class != new_class => {
             ws.input_size_class = new_class;
             true
         }

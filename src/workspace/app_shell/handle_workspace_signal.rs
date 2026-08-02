@@ -3,7 +3,7 @@ use super::AppShell;
 use crate::engine::{run_analysis, AnalysisOutput};
 use crate::results::{export_results_pdf, load_results_for_wall, parse_checks, persist_results};
 use crate::walls::new_wall;
-use crate::workspace::instance::WorkspaceInstance;
+use crate::domains::structural::StructuralWorkspace;
 use crate::workspace::signal::WorkspaceSignal;
 use hyper_ui::apply_signal_text;
 use hypernode::{Graph, PropValue};
@@ -18,7 +18,10 @@ pub fn handle_workspace_signal(shell: &mut AppShell, signal: WorkspaceSignal) {
     match signal {
         WorkspaceSignal::NewWall => {
             if let Some(idx) = idx {
-                if let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] {
+                if let Some(ws) = shell.workspaces[idx]
+                    .as_any_mut()
+                    .downcast_mut::<StructuralWorkspace>()
+                {
                     let name = ws.next_wall_name();
                     let id = new_wall(&mut ws.graph, &mut shell.db, name);
                     ws.active_wall = Some(id);
@@ -31,7 +34,10 @@ pub fn handle_workspace_signal(shell: &mut AppShell, signal: WorkspaceSignal) {
         }
         WorkspaceSignal::WallSelected(id) => {
             if let Some(idx) = idx {
-                if let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] {
+                if let Some(ws) = shell.workspaces[idx]
+                    .as_any_mut()
+                    .downcast_mut::<StructuralWorkspace>()
+                {
                     if ws.select_wall(id) {
                         let loaded = load_results_for_wall(&mut shell.db, id);
                         ws.last_analysis = loaded.as_ref().map(summary_from_results);
@@ -44,7 +50,10 @@ pub fn handle_workspace_signal(shell: &mut AppShell, signal: WorkspaceSignal) {
         }
         WorkspaceSignal::RunAnalysis => {
             if let Some(idx) = idx {
-                if let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] {
+                if let Some(ws) = shell.workspaces[idx]
+                    .as_any_mut()
+                    .downcast_mut::<StructuralWorkspace>()
+                {
                     let wall = ws
                         .active_wall
                         .and_then(|id| ws.graph.nodes.get(&id).cloned());
@@ -78,7 +87,10 @@ pub fn handle_workspace_signal(shell: &mut AppShell, signal: WorkspaceSignal) {
         WorkspaceSignal::Save => status_msg = Some("signal: Save".into()),
         WorkspaceSignal::Export => {
             if let Some(idx) = idx {
-                if let WorkspaceInstance::Analysis(ws) = &shell.workspaces[idx] {
+                if let Some(ws) = shell.workspaces[idx]
+                    .as_any()
+                    .downcast_ref::<StructuralWorkspace>()
+                {
                     if let Some(results) = ws.last_results.as_ref() {
                         match export_results_pdf(results) {
                             Ok(path) => {

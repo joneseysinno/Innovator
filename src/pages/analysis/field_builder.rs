@@ -1,7 +1,6 @@
 pub mod build;
 
-use crate::workspace::analysis_action::AnalysisAction;
-use crate::workspace::field_builder_draft::BuilderFieldSlot;
+use crate::domains::structural::{AnalysisAction, BuilderFieldSlot};
 use hyper_ui::particles::{Particle, ParticleId};
 use std::collections::HashMap;
 

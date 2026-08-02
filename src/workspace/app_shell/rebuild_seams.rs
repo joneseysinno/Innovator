@@ -1,9 +1,9 @@
-use crate::workspace::analysis::AnalysisWorkspace;
+use crate::domains::structural::StructuralWorkspace;
 use hyper_ui::{HyperRenderer, Rect};
 
 /// Rebuild page seams; pod dividers are rebuilt from each page's PodList layout.
 pub fn rebuild_seams(
-    ws: &AnalysisWorkspace,
+    ws: &StructuralWorkspace,
     pages_area: Rect,
     renderer: &mut HyperRenderer,
 ) {

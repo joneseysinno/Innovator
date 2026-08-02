@@ -1,10 +1,10 @@
 use super::wall_list::build_wall_list;
 use super::wall_summary::build_wall_summary;
-use crate::workspace::analysis::AnalysisWorkspace;
+use crate::domains::structural::StructuralWorkspace;
 use hyper_ui::particles::{Particle, StackParticle};
 
 /// Build the Navigation page (WallList | WallSummary) and wire interaction maps.
-pub fn build_navigation(ws: &mut AnalysisWorkspace) -> Particle {
+pub fn build_navigation(ws: &mut StructuralWorkspace) -> Particle {
     let list = build_wall_list(&ws.graph, ws.active_wall);
     let summary = build_wall_summary(&ws.graph, ws.active_wall);
 

@@ -1,15 +1,17 @@
 use super::rebuild_active::rebuild_active;
 use super::AppShell;
-use crate::workspace::analysis::templates::empty_page_ios;
-use crate::workspace::analysis::PageSignal;
-use crate::workspace::instance::WorkspaceInstance;
+use crate::domains::structural::templates::empty_page_ios;
+use crate::domains::structural::{PageSignal, StructuralWorkspace};
 
 pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
     let active_id = shell.active_id;
     let Some(idx) = shell.workspaces.iter().position(|w| w.id() == active_id) else {
         return;
     };
-    let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] else {
+    let Some(ws) = shell.workspaces[idx]
+        .as_any_mut()
+        .downcast_mut::<StructuralWorkspace>()
+    else {
         return;
     };
 

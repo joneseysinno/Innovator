@@ -1,4 +1,4 @@
-use crate::workspace::analysis::AnalysisWorkspace;
+use crate::domains::structural::StructuralWorkspace;
 use hyper_ui::layout::{arrange_particle, LayoutBox};
 use hyper_ui::particles::Particle;
 use hyper_ui::{IconRailSide, PageId, Rect};
@@ -6,7 +6,7 @@ use hyper_ui::{IconRailSide, PageId, Rect};
 /// Walk the PageTree and assign absolute layouts to page / header / rail / pod particles.
 pub fn sync_from_page_tree(
     root: &mut Particle,
-    ws: &AnalysisWorkspace,
+    ws: &StructuralWorkspace,
     pages_area: Rect,
 ) {
     let Some(pages_row) = find_pages_row(root) else {
@@ -36,7 +36,7 @@ fn sync_page_interior(
     page_particle: &mut Particle,
     page: &hyper_ui::PageNode,
     page_rect: Rect,
-    ws: &AnalysisWorkspace,
+    ws: &StructuralWorkspace,
     page_id: PageId,
 ) {
     let Particle::Stack(column) = page_particle else {
@@ -122,7 +122,7 @@ fn sync_pod_children(
     content: &mut Particle,
     page: &hyper_ui::PageNode,
     content_rect: Rect,
-    _ws: &AnalysisWorkspace,
+    _ws: &StructuralWorkspace,
     _page_id: PageId,
 ) {
     let leaves = page.pods.layout(content_rect);

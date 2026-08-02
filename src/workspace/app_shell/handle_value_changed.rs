@@ -2,7 +2,7 @@ use super::rebuild_active::rebuild_active;
 use super::AppShell;
 use crate::pages::analysis::wall_view::build_section_spatial;
 use crate::walls::{field_value_to_prop, is_geometry_or_rebar_key, persist_wall};
-use crate::workspace::instance::WorkspaceInstance;
+use crate::domains::structural::StructuralWorkspace;
 use hyper_ui::{apply_signal_text, FieldValue, ParticleId};
 use hypernode::HyperNode;
 
@@ -14,7 +14,10 @@ pub fn handle_value_changed(shell: &mut AppShell, field_id: ParticleId, value: F
     };
 
     let (rebuild_ui, status) = {
-        let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] else {
+        let Some(ws) = shell.workspaces[idx]
+            .as_any_mut()
+            .downcast_mut::<StructuralWorkspace>()
+        else {
             return;
         };
         let Some(key) = ws.field_props.get(&field_id).cloned() else {

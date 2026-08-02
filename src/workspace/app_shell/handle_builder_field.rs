@@ -1,6 +1,5 @@
 use super::AppShell;
-use crate::workspace::field_builder_draft::BuilderFieldSlot;
-use crate::workspace::instance::WorkspaceInstance;
+use crate::domains::structural::{BuilderFieldSlot, StructuralWorkspace};
 use hyper_ui::{FieldValue, ParticleId};
 
 /// Update FieldBuilder draft from a committed builder field.
@@ -9,7 +8,10 @@ pub fn handle_builder_field(shell: &mut AppShell, field_id: ParticleId, value: F
     let Some(idx) = shell.workspaces.iter().position(|w| w.id() == active_id) else {
         return;
     };
-    let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] else {
+    let Some(ws) = shell.workspaces[idx]
+        .as_any_mut()
+        .downcast_mut::<StructuralWorkspace>()
+    else {
         return;
     };
     let Some(slot) = ws.builder_slots.get(&field_id).copied() else {

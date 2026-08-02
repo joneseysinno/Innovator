@@ -1,8 +1,10 @@
 use super::AppShell;
+use crate::auth::session::Session;
+use crate::domains::home::HomeDescriptor;
 use crate::results::ensure_results_space;
 use crate::walls::ensure_walls_space;
-use crate::workspace::home::HomeWorkspace;
 use crate::workspace::instance::WorkspaceInstance;
+use crate::workspace::registry::WorkspaceRegistry;
 use crate::workspace::screen_class::ScreenClass;
 use crate::workspace::tab_strip::build_tab_strip;
 use crate::workspace::workspace_id::WorkspaceId;
@@ -11,7 +13,7 @@ use infinite_db::InfiniteDb;
 use std::collections::HashMap;
 
 impl AppShell {
-    pub fn new(mut db: InfiniteDb) -> Self {
+    pub fn new(mut db: InfiniteDb, registry: WorkspaceRegistry, session: Session) -> Self {
         ensure_walls_space(&mut db);
         ensure_results_space(&mut db);
 
@@ -21,9 +23,11 @@ impl AppShell {
             let _ = tx.send("engine online".into());
         });
 
-        let first = HomeWorkspace::new(WorkspaceId(1));
-        let active_id = first.tab.id;
-        let workspaces = vec![WorkspaceInstance::Home(first)];
+        let first = registry
+            .spawn(HomeDescriptor::KIND_ID, WorkspaceId(1), &mut db)
+            .expect("home descriptor registered");
+        let workspaces = vec![WorkspaceInstance::from_boxed(first)];
+        let active_id = workspaces[0].id();
         let tabs: Vec<_> = workspaces.iter().map(|w| w.tab().clone()).collect();
         let tab_strip = build_tab_strip(&tabs, active_id);
 
@@ -31,6 +35,8 @@ impl AppShell {
             window: None,
             renderer: None,
             db,
+            registry,
+            session,
             screen_class: ScreenClass::Desktop,
             workspaces,
             active_id,

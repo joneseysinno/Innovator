@@ -1,4 +1,4 @@
-use crate::workspace::analysis::io_kind::IoKind;
+use crate::domains::structural::io_kind::IoKind;
 use hyper_ui::{
     IconRailConfig, IconRailSide, PageId, PageNode, Pod, PodId, PodList,
 };

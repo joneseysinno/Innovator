@@ -1,11 +1,11 @@
 use super::results_table::build_results_table;
 use super::status::build_status;
 use crate::results::parse_checks;
-use crate::workspace::analysis::AnalysisWorkspace;
+use crate::domains::structural::StructuralWorkspace;
 use hyper_ui::particles::{Particle, StackParticle};
 
 /// Build the Results page (table | status) and wire export triggers.
-pub fn build_results(ws: &mut AnalysisWorkspace) -> Particle {
+pub fn build_results(ws: &mut StructuralWorkspace) -> Particle {
     let checks = ws
         .last_results
         .as_ref()

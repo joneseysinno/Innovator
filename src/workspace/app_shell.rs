@@ -22,9 +22,11 @@ pub mod sync_chrome_layouts;
 pub mod sync_from_page_tree;
 pub mod window_event;
 
-use crate::workspace::analysis::PageSignal;
+use crate::auth::session::Session;
+use crate::domains::structural::PageSignal;
 use crate::workspace::app_shell::page_context_menu::PageContextMenu;
 use crate::workspace::instance::WorkspaceInstance;
+use crate::workspace::registry::WorkspaceRegistry;
 use crate::workspace::screen_class::ScreenClass;
 use crate::workspace::tab_strip::TabStripIO;
 use crate::workspace::workspace_id::WorkspaceId;
@@ -39,6 +41,8 @@ pub struct AppShell {
     pub(crate) window: Option<Arc<Window>>,
     pub(crate) renderer: Option<HyperRenderer>,
     pub db: InfiniteDb,
+    pub registry: WorkspaceRegistry,
+    pub session: Session,
     pub screen_class: ScreenClass,
     pub workspaces: Vec<WorkspaceInstance>,
     pub active_id: WorkspaceId,

@@ -4,8 +4,7 @@ use super::InputFormIO;
 use crate::components::{engineer_input, engineer_text_input};
 use crate::pages::analysis::field_builder::build_field_builder;
 use crate::walls::{format_prop, is_standard_key};
-use crate::workspace::analysis_action::AnalysisAction;
-use crate::workspace::field_builder_draft::FieldBuilderDraft;
+use crate::domains::structural::{AnalysisAction, FieldBuilderDraft};
 use crate::workspace::size_class::SizeClass;
 use hyper_ui::particles::{
     Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle,

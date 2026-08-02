@@ -1,9 +1,9 @@
 use super::rebuild_active::rebuild_active;
 use super::AppShell;
 use crate::walls::{persist_wall, slug_key};
-use crate::workspace::analysis_action::AnalysisAction;
-use crate::workspace::field_builder_draft::{CustomFieldKind, FieldBuilderDraft};
-use crate::workspace::instance::WorkspaceInstance;
+use crate::domains::structural::{
+    AnalysisAction, CustomFieldKind, FieldBuilderDraft, StructuralWorkspace,
+};
 use hyper_ui::apply_signal_text;
 use hypernode::{EdgeId, EdgeKind, HyperEdge, HyperNode, NodeId, PropValue};
 
@@ -18,7 +18,10 @@ pub fn handle_analysis_action(shell: &mut AppShell, action: AnalysisAction) {
     let mut status = None;
 
     {
-        let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] else {
+        let Some(ws) = shell.workspaces[idx]
+            .as_any_mut()
+            .downcast_mut::<StructuralWorkspace>()
+        else {
             return;
         };
 
@@ -95,7 +98,10 @@ pub fn handle_promote_prop(shell: &mut AppShell, key: String) {
 
     let status;
     {
-        let WorkspaceInstance::Analysis(ws) = &mut shell.workspaces[idx] else {
+        let Some(ws) = shell.workspaces[idx]
+            .as_any_mut()
+            .downcast_mut::<StructuralWorkspace>()
+        else {
             return;
         };
         let Some(wall_id) = ws.active_wall else {
