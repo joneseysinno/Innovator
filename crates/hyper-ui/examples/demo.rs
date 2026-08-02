@@ -1,14 +1,15 @@
-//! Kitchen-sink window — exercises all Phase 0 particles and acceptance criteria.
+//! Kitchen-sink window — exercises particles, page seams, and pod dividers.
 //!
 //! ```sh
 //! cargo run -p hyper-ui --example demo
 //! ```
 
-use hyper_ui::particles::{Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle};
-use hyper_ui::seam::PodTree;
+use hyper_ui::particles::{
+    Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle,
+};
 use hyper_ui::{
-    apply_signal_text, engineer_input, EdgeKindGpu, HyperRenderer, InMemoryWorldSpatial, Rect,
-    SceneNode, UiEvent, Vec2, WorldEdge,
+    apply_signal_text, engineer_input, EdgeKindGpu, HyperRenderer, InMemoryWorldSpatial, Pod,
+    PodId, PodList, Rect, SceneNode, UiEvent, Vec2, WorldEdge,
 };
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -53,7 +54,7 @@ struct DemoApp {
     signal_rx: flume::Receiver<String>,
     signal_tx: flume::Sender<String>,
     spatial: InMemoryWorldSpatial,
-    pods: PodTree,
+    pods: PodList,
     pod_area: Rect,
     last_frame: Instant,
 }
@@ -61,17 +62,13 @@ struct DemoApp {
 impl DemoApp {
     fn new() -> Self {
         let (signal_tx, signal_rx) = flume::unbounded();
-        // Background thread fires a Signal that updates a source particle.
         let tx = signal_tx.clone();
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_secs(2));
             let _ = tx.send("signal: engine tick @ t+2s".into());
             loop {
                 std::thread::sleep(Duration::from_secs(3));
-                let _ = tx.send(format!(
-                    "signal: live update {}",
-                    chrono_like_now()
-                ));
+                let _ = tx.send(format!("signal: live update {}", chrono_like_now()));
             }
         });
 
@@ -113,10 +110,21 @@ impl DemoApp {
             signal_rx,
             signal_tx,
             spatial,
-            pods: PodTree::two_column(0.42),
+            pods: PodList::two(
+                Pod::new(PodId(0), "Form").with_height(0.42),
+                Pod::new(PodId(1), "Scene").with_height(0.58),
+            ),
             pod_area: Rect::from_xywh(0.0, 0.0, 800.0, 600.0),
             last_frame: Instant::now(),
         }
+    }
+
+    fn rebuild_dividers(pods: &PodList, pod_area: Rect, renderer: &mut HyperRenderer) {
+        let layout = pods.layout(pod_area);
+        renderer
+            .ui
+            .pod_dividers
+            .rebuild(&layout, pods.gap, pod_area.size.y);
     }
 }
 
@@ -146,15 +154,11 @@ impl ApplicationHandler for DemoApp {
 
         let size = window.inner_size();
         self.pod_area = Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
-        renderer
-            .ui
-            .pod_seams
-            .rebuild_from_pods(&self.pods, self.pod_area);
+        Self::rebuild_dividers(&self.pods, self.pod_area, &mut renderer);
 
-        // Left pod = UI form, right pod = scene canvas region (drawn via Layer A)
-        let leaves = self.pods.leaf_rects(self.pod_area);
-        if let Some((_, left)) = leaves.first() {
-            renderer.ui.layout(*left);
+        let leaves = self.pods.layout(self.pod_area);
+        if let Some((_, top)) = leaves.first() {
+            renderer.ui.layout(*top);
         }
 
         window.request_redraw();
@@ -177,39 +181,32 @@ impl ApplicationHandler for DemoApp {
                 renderer.resize(*size);
                 self.pod_area =
                     Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
-                renderer
-                    .ui
-                    .pod_seams
-                    .rebuild_from_pods(&self.pods, self.pod_area);
-                if let Some((_, left)) = self.pods.leaf_rects(self.pod_area).first().copied() {
-                    renderer.ui.layout(left);
+                Self::rebuild_dividers(&self.pods, self.pod_area, renderer);
+                if let Some((_, top)) = self.pods.layout(self.pod_area).first().copied() {
+                    renderer.ui.layout(top);
                 }
                 window.request_redraw();
             }
             WindowEvent::RedrawRequested => {
-                // Drain background signals — partial text dirty only.
                 while let Ok(msg) = self.signal_rx.try_recv() {
                     if let Some(id) = self.status_id {
                         apply_signal_text(&mut renderer.ui.tree, id, msg);
                     }
                 }
 
-                let leaves = self.pods.leaf_rects(self.pod_area);
-                if let Some((_, left)) = leaves.first().copied() {
+                let leaves = self.pods.layout(self.pod_area);
+                if let Some((_, top)) = leaves.first().copied() {
                     if renderer.ui.tree.dirty.needs_layout() {
-                        renderer.ui.layout(left);
+                        renderer.ui.layout(top);
                     }
                 }
 
-                // Scene in the right pod
-                if let Some((_, right)) = leaves.get(1).copied() {
+                if let Some((_, bottom)) = leaves.get(1).copied() {
                     renderer.scene.camera.screen_px = hyper_ui::UVec2::new(
-                        right.size.x.max(1.0) as u32,
-                        right.size.y.max(1.0) as u32,
+                        bottom.size.x.max(1.0) as u32,
+                        bottom.size.y.max(1.0) as u32,
                     );
-                    // Offset camera draw by translating after — for demo, fill whole window
-                    // scene layer still draws full-surface; nodes demonstrate Layer A.
-                    let _ = right;
+                    let _ = bottom;
                 }
 
                 renderer
@@ -221,9 +218,8 @@ impl ApplicationHandler for DemoApp {
                     renderer.config.width as f32,
                     renderer.config.height as f32,
                 ];
-                // Re-layout left pod every frame so resize/seam stay correct
-                if let Some((_, left)) = leaves.first().copied() {
-                    renderer.ui.layout(left);
+                if let Some((_, top)) = leaves.first().copied() {
+                    renderer.ui.layout(top);
                 }
                 renderer.ui.rebuild_draw_lists(
                     &renderer.device,
@@ -237,7 +233,6 @@ impl ApplicationHandler for DemoApp {
                     renderer.end_frame(ctx);
                 }
 
-                // Aim ~60fps
                 let elapsed = self.last_frame.elapsed();
                 if elapsed < Duration::from_millis(16) {
                     std::thread::sleep(Duration::from_millis(16) - elapsed);
@@ -247,26 +242,37 @@ impl ApplicationHandler for DemoApp {
             }
             other => {
                 let cursor = renderer.ui.input.cursor;
-                let seam_events = renderer.ui.pod_seams.handle_event(
-                    other,
-                    cursor,
-                    &mut self.pods,
-                    self.pod_area,
-                );
-                for ev in &seam_events {
-                    if matches!(ev, UiEvent::SeamDrag { .. } | UiEvent::SeamReset { .. }) {
-                        renderer.ui.tree.mark_all_dirty();
-                        if let Some((_, left)) = self.pods.leaf_rects(self.pod_area).first().copied()
-                        {
-                            renderer.ui.layout(left);
+                let divider_events = renderer.ui.pod_dividers.handle_event(other, cursor);
+                let mut changed = false;
+                for ev in &divider_events {
+                    match ev {
+                        UiEvent::PodDividerDrag { above, delta } => {
+                            self.pods
+                                .apply_divider_drag(*above, *delta, self.pod_area.size.y);
+                            changed = true;
                         }
+                        UiEvent::PodDividerEqualize { .. } => {
+                            self.pods.equalize();
+                            changed = true;
+                        }
+                        UiEvent::PodCollapse { id } => {
+                            self.pods.toggle(*id);
+                            changed = true;
+                        }
+                        _ => {}
                     }
                 }
-                if let Some(icon) = renderer.ui.pod_seams.cursor_icon() {
+                if changed {
+                    Self::rebuild_dividers(&self.pods, self.pod_area, renderer);
+                    renderer.ui.tree.mark_all_dirty();
+                    if let Some((_, top)) = self.pods.layout(self.pod_area).first().copied() {
+                        renderer.ui.layout(top);
+                    }
+                }
+                if let Some(icon) = renderer.ui.pod_dividers.cursor_icon() {
                     window.set_cursor(icon);
                 }
 
-                // Pan/zoom scene with sink-like pointer on right half
                 if let WindowEvent::MouseWheel { delta, .. } = other {
                     let factor = match delta {
                         winit::event::MouseScrollDelta::LineDelta(_, y) => {
@@ -319,12 +325,11 @@ impl ApplicationHandler for DemoApp {
                     }
                 }
 
-                // Middle-drag pan when cursor is over the right pod
                 if let WindowEvent::CursorMoved { position, .. } = other {
                     let pos = Vec2::new(position.x as f32, position.y as f32);
-                    if let Some((_, right)) = self.pods.leaf_rects(self.pod_area).get(1) {
-                        if right.contains(pos) {
-                            // small auto-idle pan unused — wheel zoom is enough for demo
+                    if let Some((_, bottom)) = self.pods.layout(self.pod_area).get(1) {
+                        if bottom.contains(pos) {
+                            // wheel zoom covers scene interaction for the demo
                         }
                     }
                 }

@@ -25,6 +25,6 @@ pub fn build_analysis(ws: &mut AnalysisWorkspace) -> Particle {
     ws.wall_spatial = view.spatial;
 
     Particle::Stack(
-        StackParticle::row(vec![form.particle, view.particle]).with_gap(0.0),
+        StackParticle::column(vec![form.particle, view.particle]).with_gap(0.0),
     )
 }

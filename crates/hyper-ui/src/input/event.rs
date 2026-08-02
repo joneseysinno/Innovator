@@ -1,7 +1,8 @@
 use crate::geom::Vec2;
-use crate::page_tree::PageSeamId;
+use crate::page::PageSeamId;
 use crate::particles::field::FieldValue;
 use crate::particles::{ParticleId, PointerKind};
+use crate::pod::PodId;
 use crate::seam::SeamDirection;
 
 #[derive(Debug, Clone)]
@@ -30,5 +31,18 @@ pub enum UiEvent {
         seam_id: PageSeamId,
         cursor: Vec2,
         direction: SeamDirection,
+    },
+    /// Toggle collapse on a pod (title-bar click).
+    PodCollapse {
+        id: PodId,
+    },
+    /// Drag a pod divider — redistribute height between `above` and the next pod.
+    PodDividerDrag {
+        above: PodId,
+        delta: f32,
+    },
+    /// Double-click a pod divider — equalize heights around `above`.
+    PodDividerEqualize {
+        above: PodId,
     },
 }

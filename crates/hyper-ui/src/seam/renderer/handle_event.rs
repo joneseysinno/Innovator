@@ -1,9 +1,8 @@
 use winit::event::{ElementState, MouseButton, WindowEvent};
 
-use crate::geom::{Rect, Vec2};
+use crate::geom::Vec2;
 use crate::input::UiEvent;
-use crate::page_tree::PageSeamId;
-use crate::seam::{PodTree, SeamDirection};
+use crate::seam::SeamDirection;
 
 use super::SeamRenderer;
 
@@ -16,7 +15,7 @@ pub enum SeamRatioAction {
 
 impl SeamRenderer {
     /// Detect seam interaction and return events plus an optional ratio action.
-    /// Caller applies the action to its tree, then rebuilds this renderer.
+    /// Caller applies the action to its page tree, then rebuilds this renderer.
     pub fn handle_event_with(
         &mut self,
         event: &WindowEvent,
@@ -98,12 +97,11 @@ impl SeamRenderer {
                 if let Some(idx) = self
                     .seams
                     .iter()
-                    .position(|s| s.is_page_seam && s.hit_rect().contains(cursor))
+                    .position(|s| s.hit_rect().contains(cursor))
                 {
                     let seam = &self.seams[idx];
-                    let seam_id = seam.page_seam_id.unwrap_or(PageSeamId(idx as u32));
                     out.push(UiEvent::PageSeamRightClick {
-                        seam_id,
+                        seam_id: seam.seam_id,
                         cursor,
                         direction: seam.direction,
                     });
@@ -112,35 +110,6 @@ impl SeamRenderer {
             _ => {}
         }
         (out, action)
-    }
-
-    /// Convenience: drag/reset against a single [`PodTree`].
-    pub fn handle_event(
-        &mut self,
-        event: &WindowEvent,
-        cursor: Vec2,
-        pods: &mut PodTree,
-        area: Rect,
-    ) -> Vec<UiEvent> {
-        let (events, action) = self.handle_event_with(event, cursor);
-        if let Some((idx, act)) = action {
-            match act {
-                SeamRatioAction::Set(r) => pods.set_ratio(idx, r),
-                SeamRatioAction::Reset => pods.reset_ratio(idx),
-            }
-            let dragging = self.drag.map(|(i, _)| i);
-            self.rebuild_from_pods(pods, area);
-            if let Some(i) = dragging {
-                if let Some(s) = self.seams.get_mut(i) {
-                    s.dragging = true;
-                    s.hovered = true;
-                }
-            } else if matches!(act, SeamRatioAction::Reset) {
-                // leave clean
-            }
-            let _ = idx;
-        }
-        events
     }
 
     /// After the caller applies a ratio action and rebuilds, restore drag visuals.

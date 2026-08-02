@@ -1,4 +1,4 @@
-use hyper_ui::{PageId, PageSeamId, PageSide, SeamDirection};
+use hyper_ui::{PageId, PageSeamId, PageSide, PodId, SeamDirection};
 
 /// Signals that mutate the PageTree. Handled by the workspace, not the library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,6 +24,6 @@ pub enum PageSignal {
     },
     ScrollToPod {
         page_id: PageId,
-        pod_leaf_id: u32,
+        pod_id: PodId,
     },
 }

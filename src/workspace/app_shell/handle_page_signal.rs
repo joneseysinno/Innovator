@@ -50,12 +50,9 @@ pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
             ws.page_tree.reset_ratio(seam_id);
             rebuild = true;
         }
-        PageSignal::ScrollToPod {
-            page_id,
-            pod_leaf_id,
-        } => {
+        PageSignal::ScrollToPod { page_id, pod_id } => {
             // Pod rects are absolute today — refresh layouts. Future: scroll offset.
-            let _ = (page_id, pod_leaf_id);
+            let _ = (page_id, pod_id);
             rebuild = true;
         }
     }

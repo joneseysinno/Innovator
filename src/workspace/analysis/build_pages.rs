@@ -4,12 +4,13 @@ use super::io_kind::IoKind;
 use super::AnalysisWorkspace;
 use crate::pages::{build_analysis, build_navigation, build_results};
 use crate::pages::placeholder::build_empty_pod;
-use hyper_ui::particles::{Particle, StackParticle, ViewParticle};
-use hyper_ui::{IconRailSide, PageHeaderSlots, PageId, PageNode};
+use hyper_ui::particles::{Particle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle};
+use hyper_ui::{IconRailSide, PageHeaderSlots, PageId, PageNode, PodId};
 
 /// Page region particle for an Analysis workspace — one child per PageTree leaf.
 pub fn build_pages(ws: &mut AnalysisWorkspace) -> Particle {
     ws.icon_rail_triggers.clear();
+    ws.pod_collapse_triggers.clear();
     ws.page_split_triggers.clear();
     ws.analysis_header_status_id = None;
 
@@ -33,15 +34,15 @@ pub fn build_pages(ws: &mut AnalysisWorkspace) -> Particle {
 fn build_one_page(
     ws: &mut AnalysisWorkspace,
     page: &PageNode,
-    ios: &[(u32, IoKind)],
+    ios: &[(hyper_ui::PodId, IoKind)],
 ) -> Particle {
-    let content = build_page_content(ws, ios);
+    let raw_content = build_page_content(ws, ios);
+    let content = wrap_pods_with_title_bars(ws, page, raw_content);
 
     let mut body_children = Vec::new();
 
     if let Some(rail) = &page.icon_rail {
-        let leaf_count = page.pod_tree.leaf_rects(hyper_ui::Rect::from_xywh(0.0, 0.0, 1.0, 1.0)).len();
-        let icons = default_pod_icons(leaf_count);
+        let icons = default_pod_icons(page.pods.pods.len());
         let rail_particle = build_icon_rail(page, &icons, &mut ws.icon_rail_triggers);
         match rail.side {
             IconRailSide::Left => {
@@ -90,7 +91,42 @@ fn build_one_page(
     Particle::Stack(StackParticle::column(column).with_gap(0.0))
 }
 
-fn build_page_content(ws: &mut AnalysisWorkspace, ios: &[(u32, IoKind)]) -> Particle {
+/// Wrap each pod child with a clickable title bar that toggles collapse.
+fn wrap_pods_with_title_bars(
+    ws: &mut AnalysisWorkspace,
+    page: &PageNode,
+    content: Particle,
+) -> Particle {
+    let Particle::Stack(mut stack) = content else {
+        return content;
+    };
+    let mut wrapped = Vec::with_capacity(stack.children.len());
+    for (i, child) in stack.children.drain(..).enumerate() {
+        let pod = page.pods.pods.get(i);
+        let (pod_id, title) = match pod {
+            Some(p) => (p.id, p.title.clone()),
+            None => (PodId(i as u32), format!("Pod {i}")),
+        };
+        let trigger = TriggerParticle::new(title);
+        ws.pod_collapse_triggers.insert(trigger.id, pod_id);
+        let bar = Particle::Surface(
+            SurfaceParticle::new([0.16, 0.17, 0.20, 1.0])
+                .with_padding(4.0)
+                .with_radius(0.0)
+                .with_child(Particle::Trigger(trigger)),
+        );
+        wrapped.push(Particle::Stack(
+            StackParticle::column(vec![bar, child]).with_gap(0.0),
+        ));
+    }
+    stack.children = wrapped;
+    Particle::Stack(stack)
+}
+
+fn build_page_content(
+    ws: &mut AnalysisWorkspace,
+    ios: &[(hyper_ui::PodId, IoKind)],
+) -> Particle {
     let kinds: Vec<IoKind> = ios.iter().map(|(_, k)| *k).collect();
     match kinds.as_slice() {
         [IoKind::WallList, IoKind::WallSummary] => build_navigation(ws),
@@ -98,17 +134,12 @@ fn build_page_content(ws: &mut AnalysisWorkspace, ios: &[(u32, IoKind)]) -> Part
         [IoKind::ResultsTable, IoKind::Status] => build_results(ws),
         [IoKind::Empty] | [] => build_empty_pod("Empty page"),
         _ => {
-            // Generic: build each IO independently in pod order.
+            // Generic: build each IO independently in pod order (vertical stack).
             let mut pods = Vec::new();
             for (_, kind) in ios {
                 pods.push(build_single_io(ws, *kind));
             }
-            // Prefer row for two vertical-split style pages, column otherwise.
-            if pods.len() == 2 {
-                Particle::Stack(StackParticle::row(pods).with_gap(0.0))
-            } else {
-                Particle::Stack(StackParticle::column(pods).with_gap(0.0))
-            }
+            Particle::Stack(StackParticle::column(pods).with_gap(0.0))
         }
     }
 }

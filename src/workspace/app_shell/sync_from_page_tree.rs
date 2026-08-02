@@ -125,7 +125,7 @@ fn sync_pod_children(
     _ws: &AnalysisWorkspace,
     _page_id: PageId,
 ) {
-    let leaves = page.pod_tree.leaf_rects(content_rect);
+    let leaves = page.pods.layout(content_rect);
     let Particle::Stack(split) = content else {
         // Single empty pod surface.
         if let Some((_, r)) = leaves.first() {
@@ -138,14 +138,54 @@ fn sync_pod_children(
         return;
     };
 
-    // Pod children are in leaf order (first, then second).
-    for (i, (_leaf_id, rect)) in leaves.iter().enumerate() {
-        if let Some(child) = split.children.get_mut(i) {
-            child.set_layout(LayoutBox {
-                origin: rect.origin,
-                size: rect.size,
-            });
-            arrange_particle(child, *rect);
+    // Pod children are in layout order; each may be title-bar + body.
+    for (i, (pod_id, rect)) in leaves.iter().enumerate() {
+        let Some(child) = split.children.get_mut(i) else {
+            continue;
+        };
+        child.set_layout(LayoutBox {
+            origin: rect.origin,
+            size: rect.size,
+        });
+        arrange_particle(child, *rect);
+
+        let collapsed = page
+            .pods
+            .pods
+            .iter()
+            .find(|p| p.id == *pod_id)
+            .map(|p| p.collapsed)
+            .unwrap_or(false);
+
+        if let Particle::Stack(pod_col) = child {
+            let title_h = hyper_ui::COLLAPSED_HEIGHT.min(rect.size.y);
+            if let Some(title) = pod_col.children.get_mut(0) {
+                let title_rect = Rect::from_xywh(rect.origin.x, rect.origin.y, rect.size.x, title_h);
+                title.set_layout(LayoutBox {
+                    origin: title_rect.origin,
+                    size: title_rect.size,
+                });
+                arrange_particle(title, title_rect);
+            }
+            if let Some(body) = pod_col.children.get_mut(1) {
+                if collapsed {
+                    let empty = Rect::from_xywh(rect.origin.x, rect.origin.y + title_h, rect.size.x, 0.0);
+                    body.set_layout(LayoutBox {
+                        origin: empty.origin,
+                        size: empty.size,
+                    });
+                    arrange_particle(body, empty);
+                } else {
+                    let body_h = (rect.size.y - title_h).max(0.0);
+                    let body_rect =
+                        Rect::from_xywh(rect.origin.x, rect.origin.y + title_h, rect.size.x, body_h);
+                    body.set_layout(LayoutBox {
+                        origin: body_rect.origin,
+                        size: body_rect.size,
+                    });
+                    arrange_particle(body, body_rect);
+                }
+            }
         }
     }
 }

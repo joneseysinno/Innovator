@@ -1,20 +1,19 @@
 use crate::workspace::analysis::io_kind::IoKind;
-use hyper_ui::{IconRailConfig, IconRailSide, PageId, PageNode, PodTree};
+use hyper_ui::{
+    IconRailConfig, IconRailSide, PageId, PageNode, Pod, PodId, PodList,
+};
 
 use super::PageTemplate;
 
 pub fn navigation_page(id: PageId) -> PageTemplate {
-    // two_column is vertical; navigation pods are stacked — use horizontal split.
-    let pod_tree = PodTree::Split {
-        direction: hyper_ui::SeamDirection::Horizontal,
-        ratio: 0.35,
-        first: Box::new(PodTree::Leaf { id: 0 }),
-        second: Box::new(PodTree::Leaf { id: 1 }),
-    };
-    let ios = vec![(0, IoKind::WallList), (1, IoKind::WallSummary)];
+    let pods = PodList::two(
+        Pod::new(PodId(0), "Wall List").with_height(0.35),
+        Pod::new(PodId(1), "Summary").with_height(0.65),
+    );
+    let ios = vec![(PodId(0), IoKind::WallList), (PodId(1), IoKind::WallSummary)];
     let node = PageNode {
         id,
-        pod_tree,
+        pods,
         header: None,
         icon_rail: Some(IconRailConfig {
             side: IconRailSide::Left,

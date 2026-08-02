@@ -183,6 +183,11 @@ pub(crate) fn window_event(
                 .and_then(|a| a.analysis())
                 .map(|ws| ws.icon_rail_triggers.clone())
                 .unwrap_or_default();
+            let pod_collapse_triggers = shell
+                .active()
+                .and_then(|a| a.analysis())
+                .map(|ws| ws.pod_collapse_triggers.clone())
+                .unwrap_or_default();
             let page_split_triggers = shell
                 .active()
                 .and_then(|a| a.analysis())
@@ -205,7 +210,7 @@ pub(crate) fn window_event(
             let mut open_context_menu: Option<PageContextMenu> = None;
             let mut dismiss_context_menu = false;
             let mut page_ratio_action: Option<(usize, SeamRatioAction)> = None;
-            let mut pod_ratio_action: Option<(usize, SeamRatioAction)> = None;
+            let mut pod_divider_events: Vec<UiEvent> = Vec::new();
 
             if let WindowEvent::MouseWheel { delta, .. } = other {
                 let cursor = shell
@@ -287,15 +292,14 @@ pub(crate) fn window_event(
                     page_ratio_action = page_action;
 
                     let cursor = renderer.ui.input.cursor;
-                    let (_pod_events, pod_action) =
-                        renderer.ui.pod_seams.handle_event_with(other, cursor);
-                    pod_ratio_action = pod_action;
+                    pod_divider_events =
+                        renderer.ui.pod_dividers.handle_event(other, cursor);
 
                     let icon = renderer
                         .ui
                         .page_seams
                         .cursor_icon()
-                        .or_else(|| renderer.ui.pod_seams.cursor_icon());
+                        .or_else(|| renderer.ui.pod_dividers.cursor_icon());
                     if let Some(icon) = icon {
                         window.set_cursor(icon);
                     }
@@ -322,14 +326,17 @@ pub(crate) fn window_event(
                                 analysis_action = Some(action);
                             } else if let Some(key) = promote_props.get(&id).cloned() {
                                 promote_key = Some(key);
-                            } else if let Some((page_id, pod_leaf_id)) =
+                            } else if let Some((page_id, pod_id)) =
                                 icon_rail_triggers.get(&id).copied()
                             {
                                 page_signal =
                                     Some(crate::workspace::analysis::PageSignal::ScrollToPod {
                                         page_id,
-                                        pod_leaf_id,
+                                        pod_id,
                                     });
+                            } else if let Some(pod_id) = pod_collapse_triggers.get(&id).copied() {
+                                // Handled below via synthetic divider-style event.
+                                pod_divider_events.push(UiEvent::PodCollapse { id: pod_id });
                             } else if let Some(page_id) = page_split_triggers.get(&id).copied() {
                                 let direction =
                                     split_direction_for_page(shell, pages_area, page_id);
@@ -379,30 +386,61 @@ pub(crate) fn window_event(
                 }
             }
 
-            if let Some((idx, act)) = pod_ratio_action {
-                let owner = shell
-                    .renderer
-                    .as_ref()
-                    .and_then(|r| r.ui.pod_seams.pod_owners.get(idx).copied());
-                if let Some((page_id, local)) = owner {
-                    if let Some(ws) = shell.active_mut().and_then(|a| a.analysis_mut()) {
-                        if let Some(page) = ws.page_tree.find_mut(page_id) {
-                            match act {
-                                SeamRatioAction::Set(r) => page.pod_tree.set_ratio(local, r),
-                                SeamRatioAction::Reset => page.pod_tree.reset_ratio(local),
+            if !pod_divider_events.is_empty() {
+                let mut changed = false;
+                if let Some(ws) = shell.active_mut().and_then(|a| a.analysis_mut()) {
+                    for ev in &pod_divider_events {
+                        match ev {
+                            UiEvent::PodCollapse { id } => {
+                                for page in ws.page_tree.leaves_mut() {
+                                    if page.pods.pods.iter().any(|p| p.id == *id) {
+                                        page.pods.toggle(*id);
+                                        changed = true;
+                                        break;
+                                    }
+                                }
                             }
+                            UiEvent::PodDividerDrag { above, delta } => {
+                                let owner = ws
+                                    .page_tree
+                                    .leaf_rects(pages_area)
+                                    .into_iter()
+                                    .find_map(|(page_id, page_rect)| {
+                                        let page = ws.page_tree.find(page_id)?;
+                                        if page.pods.pods.iter().any(|p| p.id == *above) {
+                                            Some((page_id, page.content_rect(page_rect).size.y))
+                                        } else {
+                                            None
+                                        }
+                                    });
+                                if let Some((page_id, area_h)) = owner {
+                                    if let Some(page) = ws.page_tree.find_mut(page_id) {
+                                        page.pods.apply_divider_drag(*above, *delta, area_h);
+                                        changed = true;
+                                    }
+                                }
+                            }
+                            UiEvent::PodDividerEqualize { above } => {
+                                for page in ws.page_tree.leaves_mut() {
+                                    if page.pods.pods.iter().any(|p| p.id == *above) {
+                                        page.pods.equalize();
+                                        changed = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }
-                if let Some(mut renderer) = shell.renderer.take() {
-                    if let Some(ws) = shell.active().and_then(|a| a.analysis()) {
-                        rebuild_seams(ws, pages_area, &mut renderer);
-                        if matches!(act, SeamRatioAction::Set(_)) {
-                            renderer.ui.pod_seams.mark_dragging(idx);
+                if changed {
+                    if let Some(mut renderer) = shell.renderer.take() {
+                        if let Some(ws) = shell.active().and_then(|a| a.analysis()) {
+                            rebuild_seams(ws, pages_area, &mut renderer);
                         }
+                        shell.renderer = Some(renderer);
+                        size_class_rebuild = true;
                     }
-                    shell.renderer = Some(renderer);
-                    size_class_rebuild = true;
                 }
             }
 

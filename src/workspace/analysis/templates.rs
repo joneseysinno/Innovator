@@ -3,10 +3,10 @@ pub mod navigation_page;
 pub mod results_page;
 
 use crate::workspace::analysis::io_kind::IoKind;
-use hyper_ui::{PageId, PageNode, PageTree, SeamDirection};
+use hyper_ui::{PageId, PageNode, PageTree, PodId, SeamDirection};
 
 /// Initial three-page workspace layout matching the prior monolithic pod tree ratios.
-pub fn initial_page_tree() -> (PageTree, std::collections::HashMap<PageId, Vec<(u32, IoKind)>>) {
+pub fn initial_page_tree() -> (PageTree, std::collections::HashMap<PageId, Vec<(PodId, IoKind)>>) {
     let (nav, nav_ios) = navigation_page::navigation_page(PageId(0));
     let (analysis, analysis_ios) = analysis_page::analysis_page(PageId(1));
     let (results, results_ios) = results_page::results_page(PageId(2));
@@ -37,8 +37,8 @@ pub fn initial_page_tree() -> (PageTree, std::collections::HashMap<PageId, Vec<(
 }
 
 /// Empty page assignment used after a split.
-pub fn empty_page_ios() -> Vec<(u32, IoKind)> {
-    vec![(0, IoKind::Empty)]
+pub fn empty_page_ios() -> Vec<(PodId, IoKind)> {
+    vec![(PodId(0), IoKind::Empty)]
 }
 
-pub type PageTemplate = (PageNode, Vec<(u32, IoKind)>);
+pub type PageTemplate = (PageNode, Vec<(PodId, IoKind)>);

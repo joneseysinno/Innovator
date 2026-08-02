@@ -21,7 +21,7 @@ use crate::workspace::header::WorkspaceHeader;
 use crate::workspace::signal::WorkspaceSignal;
 use crate::workspace::size_class::SizeClass;
 use crate::workspace::tab::WorkspaceTab;
-use hyper_ui::{InMemoryWorldSpatial, PageId, PageTree, ParticleId};
+use hyper_ui::{InMemoryWorldSpatial, PageId, PageTree, ParticleId, PodId};
 use hypernode::{Graph, Node, NodeId};
 use std::collections::HashMap;
 
@@ -31,8 +31,8 @@ pub struct AnalysisWorkspace {
     pub header: Option<WorkspaceHeader>,
     /// Page-level binary split tree.
     pub page_tree: PageTree,
-    /// IO assignment: PageId → Vec<(pod_leaf_id, IoKind)>.
-    pub page_ios: HashMap<PageId, Vec<(u32, IoKind)>>,
+    /// IO assignment: PageId → Vec<(PodId, IoKind)>.
+    pub page_ios: HashMap<PageId, Vec<(PodId, IoKind)>>,
     /// Next PageId for split-created pages.
     pub next_page_id: u32,
     /// Which analysis type is active in this workspace.
@@ -71,8 +71,10 @@ pub struct AnalysisWorkspace {
     pub last_analysis: Option<AnalysisOutput>,
     /// Results page triggers (Export PDF).
     pub results_triggers: HashMap<ParticleId, WorkspaceSignal>,
-    /// Icon rail triggers: ParticleId → (page_id, pod_leaf_id).
-    pub icon_rail_triggers: HashMap<ParticleId, (PageId, u32)>,
+    /// Icon rail triggers: ParticleId → (page_id, pod_id).
+    pub icon_rail_triggers: HashMap<ParticleId, (PageId, PodId)>,
+    /// Pod title-bar triggers: ParticleId → PodId (toggle collapse).
+    pub pod_collapse_triggers: HashMap<ParticleId, PodId>,
     /// Page header split triggers: ParticleId → PageId.
     pub page_split_triggers: HashMap<ParticleId, PageId>,
     /// Analysis page header status source (live ratios).
@@ -94,10 +96,10 @@ impl AnalysisWorkspace {
             let page = self.page_tree.find(page_id)?;
             let content = page.content_rect(page_rect);
             let ios = self.page_ios.get(&page_id)?;
-            let leaves = page.pod_tree.leaf_rects(content);
-            for (leaf_id, io) in ios {
+            let leaves = page.pods.layout(content);
+            for (pod_id, io) in ios {
                 if *io == kind {
-                    if let Some((_, r)) = leaves.iter().find(|(id, _)| *id == *leaf_id) {
+                    if let Some((_, r)) = leaves.iter().find(|(id, _)| *id == *pod_id) {
                         return Some(*r);
                     }
                 }

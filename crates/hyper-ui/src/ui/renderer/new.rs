@@ -1,5 +1,6 @@
 use crate::input::InputRouter;
 use crate::particles::ParticleTree;
+use crate::pod::PodDividerRenderer;
 use crate::renderer::node_pipeline::NodePipeline;
 use crate::seam::SeamRenderer;
 
@@ -13,7 +14,7 @@ impl UiRenderer {
             tree: ParticleTree::default(),
             input: InputRouter::new(),
             page_seams: SeamRenderer::new(),
-            pod_seams: SeamRenderer::new(),
+            pod_dividers: PodDividerRenderer::new(),
         }
     }
 }

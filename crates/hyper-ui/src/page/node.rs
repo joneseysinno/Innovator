@@ -1,4 +1,4 @@
-use crate::seam::PodTree;
+use crate::pod::PodList;
 
 use super::{IconRailConfig, PageHeaderConfig, PageId};
 
@@ -6,8 +6,8 @@ use super::{IconRailConfig, PageHeaderConfig, PageId};
 #[derive(Debug, Clone)]
 pub struct PageNode {
     pub id: PageId,
-    /// Internal pod layout, fixed per template.
-    pub pod_tree: PodTree,
+    /// Ordered pod stack within this page.
+    pub pods: PodList,
     pub header: Option<PageHeaderConfig>,
     pub icon_rail: Option<IconRailConfig>,
 }
@@ -17,7 +17,7 @@ impl PageNode {
     pub fn empty(id: PageId) -> Self {
         Self {
             id,
-            pod_tree: PodTree::Leaf { id: 0 },
+            pods: PodList::default(),
             header: None,
             icon_rail: None,
         }

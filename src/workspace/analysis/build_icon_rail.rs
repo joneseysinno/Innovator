@@ -1,17 +1,17 @@
 use hyper_ui::particles::{Particle, StackParticle, SurfaceParticle, TriggerParticle};
-use hyper_ui::{PageId, PageNode, ParticleId};
+use hyper_ui::{PageId, PageNode, ParticleId, PodId};
 use std::collections::HashMap;
 
-/// Build an icon rail column — one trigger per pod leaf, vertical order.
+/// Build an icon rail column — one trigger per pod, vertical order.
 pub fn build_icon_rail(
     page: &PageNode,
-    pod_icons: &[(u32, &'static str)],
-    triggers: &mut HashMap<ParticleId, (PageId, u32)>,
+    pod_icons: &[(PodId, &'static str)],
+    triggers: &mut HashMap<ParticleId, (PageId, PodId)>,
 ) -> Particle {
     let mut items = Vec::with_capacity(pod_icons.len());
-    for (leaf_id, glyph) in pod_icons {
+    for (pod_id, glyph) in pod_icons {
         let t = TriggerParticle::new(*glyph);
-        triggers.insert(t.id, (page.id, *leaf_id));
+        triggers.insert(t.id, (page.id, *pod_id));
         items.push(Particle::Trigger(t));
     }
 
@@ -24,10 +24,10 @@ pub fn build_icon_rail(
     )
 }
 
-/// Default glyphs for known IO leaf roles (by leaf id order).
-pub fn default_pod_icons(leaf_count: usize) -> Vec<(u32, &'static str)> {
+/// Default glyphs for known IO roles (by pod id order).
+pub fn default_pod_icons(pod_count: usize) -> Vec<(PodId, &'static str)> {
     const GLYPHS: &[&str] = &["≡", "▣", "▤", "▥", "▦", "▧"];
-    (0..leaf_count as u32)
-        .map(|id| (id, GLYPHS.get(id as usize).copied().unwrap_or("•")))
+    (0..pod_count as u32)
+        .map(|id| (PodId(id), GLYPHS.get(id as usize).copied().unwrap_or("•")))
         .collect()
 }

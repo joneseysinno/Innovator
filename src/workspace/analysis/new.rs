@@ -49,6 +49,7 @@ impl AnalysisWorkspace {
             last_analysis,
             results_triggers: HashMap::new(),
             icon_rail_triggers: HashMap::new(),
+            pod_collapse_triggers: HashMap::new(),
             page_split_triggers: HashMap::new(),
             analysis_header_status_id: None,
         }

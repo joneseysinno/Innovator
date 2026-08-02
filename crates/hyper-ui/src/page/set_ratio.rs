@@ -10,7 +10,7 @@ impl PageTree {
         self.set_ratio(seam_id, 0.5);
     }
 
-    /// Index-based API matching [`crate::seam::PodTree::set_ratio`].
+    /// Index-based API matching pre-order seam rebuild order.
     pub fn set_ratio_index(&mut self, seam_index: usize, ratio: f32) {
         self.set_ratio(PageSeamId(seam_index as u32), ratio);
     }

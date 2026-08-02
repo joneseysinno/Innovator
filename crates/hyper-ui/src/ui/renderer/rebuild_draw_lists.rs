@@ -27,9 +27,7 @@ impl UiRenderer {
         for cmd in self.page_seams.draw_commands() {
             push_seam(&mut self.rects, cmd);
         }
-        for cmd in self.pod_seams.draw_commands() {
-            push_seam(&mut self.rects, cmd);
-        }
+        self.pod_dividers.draw_into(&mut self.rects);
 
         if let Some(id) = focused {
             if let Some(p) = self.tree.find(id) {
@@ -60,10 +58,8 @@ fn push_seam(rects: &mut crate::renderer::node_pipeline::NodePipeline, cmd: &Sea
         [0.35, 0.65, 0.95, 1.0]
     } else if cmd.hovered {
         [0.55, 0.58, 0.65, 1.0]
-    } else if cmd.is_page_seam {
-        [0.34, 0.36, 0.40, 1.0]
     } else {
-        [0.30, 0.32, 0.36, 1.0]
+        [0.34, 0.36, 0.40, 1.0]
     };
     rects.push(NodeInstance {
         position: [origin.x, origin.y],
