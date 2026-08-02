@@ -8,13 +8,15 @@ mod set_tree;
 use crate::input::InputRouter;
 use crate::particles::ParticleTree;
 use crate::renderer::node_pipeline::NodePipeline;
-use crate::seam::{PodTree, SeamRenderer};
+use crate::seam::SeamRenderer;
 
 pub struct UiRenderer {
     pub rects: NodePipeline,
     pub focus_ring: NodePipeline,
     pub tree: ParticleTree,
     pub input: InputRouter,
-    pub seams: SeamRenderer,
-    pub pods: PodTree,
+    /// Page boundaries — support split/merge.
+    pub page_seams: SeamRenderer,
+    /// Pod boundaries within pages — ratio drag only.
+    pub pod_seams: SeamRenderer,
 }

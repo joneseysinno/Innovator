@@ -8,6 +8,7 @@ use crate::workspace::tab_strip::build_tab_strip;
 use crate::workspace::workspace_id::WorkspaceId;
 use hyper_ui::Rect;
 use infinite_db::InfiniteDb;
+use std::collections::HashMap;
 
 impl AppShell {
     pub fn new(mut db: InfiniteDb) -> Self {
@@ -40,6 +41,8 @@ impl AppShell {
             // Home has no header — pages start below tab strip (~28px).
             pages_area: Rect::from_xywh(0.0, 28.0, 1280.0, 772.0),
             has_header: false,
+            pending_context_menu: None,
+            context_menu_triggers: HashMap::new(),
         }
     }
 }

@@ -1,4 +1,5 @@
 use crate::geom::{Rect, Vec2};
+use crate::page_tree::PageSeamId;
 
 use super::SeamDirection;
 
@@ -9,6 +10,12 @@ pub struct SeamDrawCmd {
     pub direction: SeamDirection,
     pub hovered: bool,
     pub dragging: bool,
+    /// True = page boundary; supports split/merge context menu.
+    pub is_page_seam: bool,
+    /// Which split node in [`crate::page_tree::PageTree`].
+    pub page_seam_id: Option<PageSeamId>,
+    /// Local area of the split this seam divides (for ratio drag).
+    pub split_area: Rect,
 }
 
 impl SeamDrawCmd {

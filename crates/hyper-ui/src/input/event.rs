@@ -1,6 +1,8 @@
 use crate::geom::Vec2;
+use crate::page_tree::PageSeamId;
 use crate::particles::field::FieldValue;
 use crate::particles::{ParticleId, PointerKind};
+use crate::seam::SeamDirection;
 
 #[derive(Debug, Clone)]
 pub enum UiEvent {
@@ -22,5 +24,11 @@ pub enum UiEvent {
     },
     SeamReset {
         seam_index: usize,
+    },
+    /// Right-click on a page-level seam — application shows split/merge menu.
+    PageSeamRightClick {
+        seam_id: PageSeamId,
+        cursor: Vec2,
+        direction: SeamDirection,
     },
 }

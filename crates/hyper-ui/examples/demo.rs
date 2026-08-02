@@ -53,6 +53,7 @@ struct DemoApp {
     signal_rx: flume::Receiver<String>,
     signal_tx: flume::Sender<String>,
     spatial: InMemoryWorldSpatial,
+    pods: PodTree,
     pod_area: Rect,
     last_frame: Instant,
 }
@@ -112,6 +113,7 @@ impl DemoApp {
             signal_rx,
             signal_tx,
             spatial,
+            pods: PodTree::two_column(0.42),
             pod_area: Rect::from_xywh(0.0, 0.0, 800.0, 600.0),
             last_frame: Instant::now(),
         }
@@ -141,14 +143,16 @@ impl ApplicationHandler for DemoApp {
         let (root, status_id, _field_id) = build_ui_tree();
         self.status_id = Some(status_id);
         renderer.ui.set_tree(root);
-        renderer.ui.pods = PodTree::two_column(0.42);
 
         let size = window.inner_size();
         self.pod_area = Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
-        renderer.ui.seams.rebuild_from_pods(&renderer.ui.pods, self.pod_area);
+        renderer
+            .ui
+            .pod_seams
+            .rebuild_from_pods(&self.pods, self.pod_area);
 
         // Left pod = UI form, right pod = scene canvas region (drawn via Layer A)
-        let leaves = renderer.ui.pods.leaf_rects(self.pod_area);
+        let leaves = self.pods.leaf_rects(self.pod_area);
         if let Some((_, left)) = leaves.first() {
             renderer.ui.layout(*left);
         }
@@ -175,10 +179,9 @@ impl ApplicationHandler for DemoApp {
                     Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
                 renderer
                     .ui
-                    .seams
-                    .rebuild_from_pods(&renderer.ui.pods, self.pod_area);
-                if let Some((_, left)) = renderer.ui.pods.leaf_rects(self.pod_area).first().copied()
-                {
+                    .pod_seams
+                    .rebuild_from_pods(&self.pods, self.pod_area);
+                if let Some((_, left)) = self.pods.leaf_rects(self.pod_area).first().copied() {
                     renderer.ui.layout(left);
                 }
                 window.request_redraw();
@@ -191,7 +194,7 @@ impl ApplicationHandler for DemoApp {
                     }
                 }
 
-                let leaves = renderer.ui.pods.leaf_rects(self.pod_area);
+                let leaves = self.pods.leaf_rects(self.pod_area);
                 if let Some((_, left)) = leaves.first().copied() {
                     if renderer.ui.tree.dirty.needs_layout() {
                         renderer.ui.layout(left);
@@ -244,23 +247,22 @@ impl ApplicationHandler for DemoApp {
             }
             other => {
                 let cursor = renderer.ui.input.cursor;
-                let seam_events = renderer.ui.seams.handle_event(
+                let seam_events = renderer.ui.pod_seams.handle_event(
                     other,
                     cursor,
-                    &mut renderer.ui.pods,
+                    &mut self.pods,
                     self.pod_area,
                 );
                 for ev in &seam_events {
                     if matches!(ev, UiEvent::SeamDrag { .. } | UiEvent::SeamReset { .. }) {
                         renderer.ui.tree.mark_all_dirty();
-                        if let Some((_, left)) =
-                            renderer.ui.pods.leaf_rects(self.pod_area).first().copied()
+                        if let Some((_, left)) = self.pods.leaf_rects(self.pod_area).first().copied()
                         {
                             renderer.ui.layout(left);
                         }
                     }
                 }
-                if let Some(icon) = renderer.ui.seams.cursor_icon() {
+                if let Some(icon) = renderer.ui.pod_seams.cursor_icon() {
                     window.set_cursor(icon);
                 }
 
@@ -320,7 +322,7 @@ impl ApplicationHandler for DemoApp {
                 // Middle-drag pan when cursor is over the right pod
                 if let WindowEvent::CursorMoved { position, .. } = other {
                     let pos = Vec2::new(position.x as f32, position.y as f32);
-                    if let Some((_, right)) = renderer.ui.pods.leaf_rects(self.pod_area).get(1) {
+                    if let Some((_, right)) = self.pods.leaf_rects(self.pod_area).get(1) {
                         if right.contains(pos) {
                             // small auto-idle pan unused — wheel zoom is enough for demo
                         }

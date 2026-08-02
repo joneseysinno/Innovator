@@ -10,7 +10,7 @@ use crate::workspace::pm::PmWorkspace;
 use crate::workspace::signal::WorkspaceSignal;
 use crate::workspace::tab::WorkspaceTab;
 use crate::workspace::workspace_id::WorkspaceId;
-use hyper_ui::{InMemoryWorldSpatial, ParticleId, PodTree};
+use hyper_ui::{InMemoryWorldSpatial, PageTree, ParticleId};
 use hypernode::NodeId;
 use std::collections::HashMap;
 
@@ -48,17 +48,31 @@ impl WorkspaceInstance {
         }
     }
 
-    pub fn pod_tree(&self) -> Option<&PodTree> {
+    pub fn page_tree(&self) -> Option<&PageTree> {
         match self {
-            Self::Analysis(w) => Some(&w.pod_tree),
+            Self::Analysis(w) => Some(&w.page_tree),
             Self::Home(_) | Self::Pm(_) | Self::Empty(_) => None,
         }
     }
 
-    pub fn pod_tree_mut(&mut self) -> Option<&mut PodTree> {
+    pub fn page_tree_mut(&mut self) -> Option<&mut PageTree> {
         match self {
-            Self::Analysis(w) => Some(&mut w.pod_tree),
+            Self::Analysis(w) => Some(&mut w.page_tree),
             Self::Home(_) | Self::Pm(_) | Self::Empty(_) => None,
+        }
+    }
+
+    pub fn analysis(&self) -> Option<&crate::workspace::analysis::AnalysisWorkspace> {
+        match self {
+            Self::Analysis(w) => Some(w),
+            _ => None,
+        }
+    }
+
+    pub fn analysis_mut(&mut self) -> Option<&mut crate::workspace::analysis::AnalysisWorkspace> {
+        match self {
+            Self::Analysis(w) => Some(w),
+            _ => None,
         }
     }
 

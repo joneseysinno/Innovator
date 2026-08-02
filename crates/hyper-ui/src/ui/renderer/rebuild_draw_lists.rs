@@ -1,5 +1,6 @@
 use crate::particles::{Particle, ParticleId};
 use crate::renderer::node_pipeline::NodeInstance;
+use crate::seam::SeamDrawCmd;
 use crate::text::{self, TextRenderer};
 use crate::ui::collect_rects;
 
@@ -23,25 +24,11 @@ impl UiRenderer {
             text::collect_text(root, text, focused);
         }
 
-        // Seams
-        for cmd in self.seams.draw_commands() {
-            let (origin, size) = cmd.line_rect();
-            let color = if cmd.dragging {
-                [0.35, 0.65, 0.95, 1.0]
-            } else if cmd.hovered {
-                [0.55, 0.58, 0.65, 1.0]
-            } else {
-                [0.30, 0.32, 0.36, 1.0]
-            };
-            self.rects.push(NodeInstance {
-                position: [origin.x, origin.y],
-                size: [size.x, size.y],
-                color,
-                border_color: [0.0; 4],
-                border_radius: 0.0,
-                border_width: 0.0,
-                _pad: [0.0; 2],
-            });
+        for cmd in self.page_seams.draw_commands() {
+            push_seam(&mut self.rects, cmd);
+        }
+        for cmd in self.pod_seams.draw_commands() {
+            push_seam(&mut self.rects, cmd);
         }
 
         if let Some(id) = focused {
@@ -65,4 +52,26 @@ impl UiRenderer {
         self.focus_ring.upload(device, queue, screen);
         text.prepare(device, queue);
     }
+}
+
+fn push_seam(rects: &mut crate::renderer::node_pipeline::NodePipeline, cmd: &SeamDrawCmd) {
+    let (origin, size) = cmd.line_rect();
+    let color = if cmd.dragging {
+        [0.35, 0.65, 0.95, 1.0]
+    } else if cmd.hovered {
+        [0.55, 0.58, 0.65, 1.0]
+    } else if cmd.is_page_seam {
+        [0.34, 0.36, 0.40, 1.0]
+    } else {
+        [0.30, 0.32, 0.36, 1.0]
+    };
+    rects.push(NodeInstance {
+        position: [origin.x, origin.y],
+        size: [size.x, size.y],
+        color,
+        border_color: [0.0; 4],
+        border_radius: 0.0,
+        border_width: 0.0,
+        _pad: [0.0; 2],
+    });
 }

@@ -1,12 +1,11 @@
 use super::kind::AnalysisKind;
-use super::pages_pod_tree::pages_pod_tree;
+use super::templates::initial_page_tree;
 use super::AnalysisWorkspace;
 use crate::engine::AnalysisOutput;
 use crate::results::{load_results_for_wall, parse_checks};
 use crate::walls::load_walls;
 use crate::workspace::header::build_header;
 use crate::workspace::kind::WorkspaceKind;
-use crate::workspace::page::Page;
 use crate::workspace::size_class::SizeClass;
 use crate::workspace::tab::WorkspaceTab;
 use crate::workspace::workspace_id::WorkspaceId;
@@ -23,11 +22,13 @@ impl AnalysisWorkspace {
             Some(wid) => load_analysis_state(db, wid),
             None => (None, None),
         };
+        let (page_tree, page_ios) = initial_page_tree();
         Self {
             tab: WorkspaceTab::new(id, WorkspaceKind::Analysis),
             header: Some(build_header()),
-            pages: Page::all().to_vec(),
-            pod_tree: pages_pod_tree(),
+            page_tree,
+            page_ios,
+            next_page_id: 3,
             active_analysis: AnalysisKind::SpecialConcreteWall,
             graph,
             active_wall,
@@ -47,6 +48,9 @@ impl AnalysisWorkspace {
             last_results,
             last_analysis,
             results_triggers: HashMap::new(),
+            icon_rail_triggers: HashMap::new(),
+            page_split_triggers: HashMap::new(),
+            analysis_header_status_id: None,
         }
     }
 
@@ -71,6 +75,12 @@ impl AnalysisWorkspace {
 
     pub fn next_wall_name(&self) -> String {
         format!("Wall {}", self.wall_count() + 1)
+    }
+
+    pub fn alloc_page_id(&mut self) -> hyper_ui::PageId {
+        let id = hyper_ui::PageId(self.next_page_id);
+        self.next_page_id += 1;
+        id
     }
 }
 

@@ -1,25 +1,29 @@
 use super::handle_analysis_action::{handle_analysis_action, handle_promote_prop};
 use super::handle_app_signal::handle_app_signal;
 use super::handle_builder_field::handle_builder_field;
+use super::handle_page_signal::handle_page_signal;
 use super::handle_value_changed::handle_value_changed;
 use super::handle_workspace_signal::handle_workspace_signal;
 use super::layout_areas::layout_areas;
+use super::page_context_menu::PageContextMenu;
 use super::rebuild_active::rebuild_active;
 use super::rebuild_seams::rebuild_seams;
 use super::sync_chrome_layouts::sync_chrome_layouts;
-use super::sync_page_layouts::sync_page_layouts;
+use super::sync_from_page_tree::sync_from_page_tree;
 use super::AppShell;
+use crate::workspace::analysis::IoKind;
 use crate::workspace::instance::WorkspaceInstance;
 use crate::workspace::screen_class::ScreenClass;
 use crate::workspace::signal::WorkspaceSignal;
 use crate::workspace::size_class::SizeClass;
-use hyper_ui::{apply_signal_text, PointerKind, Rect, UVec2, UiEvent, Vec2};
+use hyper_ui::layout::{arrange_particle, LayoutBox};
+use hyper_ui::{
+    apply_signal_text, PageSide, PointerKind, Rect, SeamDirection, SeamRatioAction, UVec2, UiEvent,
+    Vec2,
+};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
-
-const LEAF_INPUT_FORM: u32 = 4;
-const LEAF_WALL_VIEW: u32 = 5;
 
 pub(crate) fn window_event(
     shell: &mut AppShell,
@@ -41,25 +45,14 @@ pub(crate) fn window_event(
             let (_tabs, _header, pages) = layout_areas(shell.window_area, shell.has_header);
             shell.pages_area = pages;
 
-            let pod = shell.active().and_then(|a| a.pod_tree()).cloned();
-            let pages_area = shell.pages_area;
-            let window_area = shell.window_area;
-            let has_header = shell.has_header;
-
-            let Some(renderer) = shell.renderer.as_mut() else {
-                return;
+            let mut renderer = match shell.renderer.take() {
+                Some(r) => r,
+                None => return,
             };
             renderer.resize(*size);
-            if let Some(pod) = pod.as_ref() {
-                rebuild_seams(pod, pages_area, renderer);
-            }
-            renderer.ui.layout(window_area);
-            if let Some(root) = renderer.ui.tree.root.as_mut() {
-                sync_chrome_layouts(root, window_area, has_header);
-                if let Some(pod) = pod.as_ref() {
-                    sync_page_layouts(root, &pod.leaf_rects(pages_area));
-                }
-            }
+            rebuild_active(shell, &mut renderer);
+            shell.renderer = Some(renderer);
+
             maybe_update_size_class(shell);
             window.request_redraw();
         }
@@ -68,25 +61,23 @@ pub(crate) fn window_event(
             let pages_area = shell.pages_area;
             let window_area = shell.window_area;
             let has_header = shell.has_header;
+            let pending_menu = shell.pending_context_menu.clone();
 
-            let ui_pods = shell.renderer.as_ref().map(|r| r.ui.pods.clone());
-            if let (Some(pods), Some(dst)) = (ui_pods, shell.active_mut().and_then(|a| a.pod_tree_mut()))
-            {
-                *dst = pods;
-            }
-
-            let leaves = shell
-                .active()
-                .and_then(|a| a.pod_tree())
-                .map(|p| p.leaf_rects(pages_area));
             let spatial = shell
                 .active()
                 .and_then(|a| a.wall_spatial())
                 .cloned()
                 .unwrap_or_default();
 
-            let Some(renderer) = shell.renderer.as_mut() else {
-                return;
+            let wall_view_rect = shell
+                .active()
+                .and_then(|a| a.analysis())
+                .and_then(|ws| ws.io_rect(pages_area, IoKind::WallView));
+
+            // Take renderer so we can sync from analysis without dual borrows.
+            let mut renderer = match shell.renderer.take() {
+                Some(r) => r,
+                None => return,
             };
 
             while let Ok(msg) = shell.signal_rx.try_recv() {
@@ -98,22 +89,22 @@ pub(crate) fn window_event(
             renderer.ui.layout(window_area);
             if let Some(root) = renderer.ui.tree.root.as_mut() {
                 sync_chrome_layouts(root, window_area, has_header);
-                if let Some(leaves) = leaves.as_ref() {
-                    sync_page_layouts(root, leaves);
+                if let Some(WorkspaceInstance::Analysis(ws)) = shell.active() {
+                    sync_from_page_tree(root, ws, pages_area);
+                }
+                if let Some(menu) = pending_menu.as_ref() {
+                    let menu_rect = Rect::from_xywh(menu.cursor.x, menu.cursor.y, 180.0, 200.0);
+                    position_context_menu(root, menu_rect);
                 }
             }
 
-            // Layer A — wall section camera sized to WallView leaf.
-            if let Some(leaves) = leaves.as_ref() {
-                if let Some((_, view_rect)) = leaves.iter().find(|(id, _)| *id == LEAF_WALL_VIEW) {
-                    renderer.scene.camera.set_screen_size(UVec2::new(
-                        view_rect.size.x.max(1.0) as u32,
-                        view_rect.size.y.max(1.0) as u32,
-                    ));
-                    // Fit zoom roughly to a typical 8×144 in section.
-                    if renderer.scene.camera.zoom < 3.0 {
-                        renderer.scene.camera.zoom = 4.0;
-                    }
+            if let Some(view_rect) = wall_view_rect {
+                renderer.scene.camera.set_screen_size(UVec2::new(
+                    view_rect.size.x.max(1.0) as u32,
+                    view_rect.size.y.max(1.0) as u32,
+                ));
+                if renderer.scene.camera.zoom < 3.0 {
+                    renderer.scene.camera.zoom = 4.0;
                 }
             }
             renderer
@@ -136,6 +127,7 @@ pub(crate) fn window_event(
             if let Some(ctx) = renderer.begin_frame() {
                 renderer.end_frame(ctx);
             }
+            shell.renderer = Some(renderer);
             window.request_redraw();
         }
         other => {
@@ -186,11 +178,23 @@ pub(crate) fn window_event(
                 .cloned()
                 .unwrap_or_default();
             let wall_view_sink = shell.active().and_then(|a| a.wall_view_sink());
+            let icon_rail_triggers = shell
+                .active()
+                .and_then(|a| a.analysis())
+                .map(|ws| ws.icon_rail_triggers.clone())
+                .unwrap_or_default();
+            let page_split_triggers = shell
+                .active()
+                .and_then(|a| a.analysis())
+                .map(|ws| ws.page_split_triggers.clone())
+                .unwrap_or_default();
+            let context_menu_triggers = shell.context_menu_triggers.clone();
             let pages_area = shell.pages_area;
-            let has_pods = shell.active().and_then(|a| a.pod_tree()).is_some();
+            let has_pages = shell.active().and_then(|a| a.page_tree()).is_some();
 
             let mut app_signal = None;
             let mut ws_signal = None;
+            let mut page_signal = None;
             let mut analysis_action = None;
             let mut promote_key = None;
             let mut field_commit = None;
@@ -198,8 +202,11 @@ pub(crate) fn window_event(
             let mut size_class_rebuild = false;
             let mut wall_view_ptr: Option<(PointerKind, Vec2)> = None;
             let mut wheel_zoom: Option<(Vec2, f32)> = None;
+            let mut open_context_menu: Option<PageContextMenu> = None;
+            let mut dismiss_context_menu = false;
+            let mut page_ratio_action: Option<(usize, SeamRatioAction)> = None;
+            let mut pod_ratio_action: Option<(usize, SeamRatioAction)> = None;
 
-            // Wheel zoom over wall view leaf
             if let WindowEvent::MouseWheel { delta, .. } = other {
                 let cursor = shell
                     .renderer
@@ -208,13 +215,9 @@ pub(crate) fn window_event(
                     .unwrap_or(Vec2::ZERO);
                 let over_view = shell
                     .active()
-                    .and_then(|a| a.pod_tree())
-                    .and_then(|p| {
-                        p.leaf_rects(pages_area)
-                            .into_iter()
-                            .find(|(id, _)| *id == LEAF_WALL_VIEW)
-                    });
-                if let Some((_, view_rect)) = over_view {
+                    .and_then(|a| a.analysis())
+                    .and_then(|ws| ws.io_rect(pages_area, IoKind::WallView));
+                if let Some(view_rect) = over_view {
                     if view_rect.contains(cursor) {
                         let factor = match delta {
                             winit::event::MouseScrollDelta::LineDelta(_, y) => {
@@ -237,6 +240,17 @@ pub(crate) fn window_event(
                 }
             }
 
+            if let WindowEvent::MouseInput {
+                state: winit::event::ElementState::Pressed,
+                button: winit::event::MouseButton::Left,
+                ..
+            } = other
+            {
+                if shell.pending_context_menu.is_some() {
+                    dismiss_context_menu = true;
+                }
+            }
+
             {
                 let Some(renderer) = shell.renderer.as_mut() else {
                     return;
@@ -246,27 +260,55 @@ pub(crate) fn window_event(
                     renderer.scene.camera.zoom_at(cursor, factor);
                 }
 
-                if has_pods {
-                    let seam_events = renderer.ui.seams.handle_event(
-                        other,
-                        renderer.ui.input.cursor,
-                        &mut renderer.ui.pods,
-                        pages_area,
-                    );
-                    if !seam_events.is_empty() {
-                        renderer.ui.tree.mark_all_dirty();
-                        size_class_rebuild = true;
+                if has_pages {
+                    let cursor = renderer.ui.input.cursor;
+                    let (page_events, page_action) =
+                        renderer.ui.page_seams.handle_event_with(other, cursor);
+                    for ev in &page_events {
+                        if let UiEvent::PageSeamRightClick {
+                            seam_id,
+                            cursor,
+                            direction,
+                        } = ev
+                        {
+                            let side = page_side_under_cursor(
+                                pages_area,
+                                *cursor,
+                                *direction,
+                            );
+                            open_context_menu = Some(PageContextMenu {
+                                seam_id: *seam_id,
+                                cursor: *cursor,
+                                direction: *direction,
+                                side,
+                            });
+                        }
                     }
-                }
-                if let Some(icon) = renderer.ui.seams.cursor_icon() {
-                    window.set_cursor(icon);
+                    page_ratio_action = page_action;
+
+                    let cursor = renderer.ui.input.cursor;
+                    let (_pod_events, pod_action) =
+                        renderer.ui.pod_seams.handle_event_with(other, cursor);
+                    pod_ratio_action = pod_action;
+
+                    let icon = renderer
+                        .ui
+                        .page_seams
+                        .cursor_icon()
+                        .or_else(|| renderer.ui.pod_seams.cursor_icon());
+                    if let Some(icon) = icon {
+                        window.set_cursor(icon);
+                    }
                 }
 
                 let events = renderer.ui.input.route(other, &mut renderer.ui.tree);
                 for ev in events {
                     match ev {
                         UiEvent::TriggerFired(id) => {
-                            if let Some(sig) = tab_triggers.get(&id).copied() {
+                            if let Some(sig) = context_menu_triggers.get(&id).copied() {
+                                page_signal = Some(sig);
+                                dismiss_context_menu = true;
+                            } else if let Some(sig) = tab_triggers.get(&id).copied() {
                                 app_signal = Some(sig);
                             } else if let Some(sig) = home_actions.get(&id).copied() {
                                 app_signal = Some(sig);
@@ -280,6 +322,22 @@ pub(crate) fn window_event(
                                 analysis_action = Some(action);
                             } else if let Some(key) = promote_props.get(&id).cloned() {
                                 promote_key = Some(key);
+                            } else if let Some((page_id, pod_leaf_id)) =
+                                icon_rail_triggers.get(&id).copied()
+                            {
+                                page_signal =
+                                    Some(crate::workspace::analysis::PageSignal::ScrollToPod {
+                                        page_id,
+                                        pod_leaf_id,
+                                    });
+                            } else if let Some(page_id) = page_split_triggers.get(&id).copied() {
+                                let direction =
+                                    split_direction_for_page(shell, pages_area, page_id);
+                                page_signal =
+                                    Some(crate::workspace::analysis::PageSignal::SplitPage {
+                                        page_id,
+                                        direction,
+                                    });
                             }
                         }
                         UiEvent::FieldCommit { id, value } => {
@@ -303,6 +361,65 @@ pub(crate) fn window_event(
                 }
             }
 
+            // Apply page seam ratio mutations, then rebuild seam draw lists.
+            if let Some((idx, act)) = page_ratio_action {
+                if let Some(ws) = shell.active_mut().and_then(|a| a.analysis_mut()) {
+                    match act {
+                        SeamRatioAction::Set(r) => ws.page_tree.set_ratio_index(idx, r),
+                        SeamRatioAction::Reset => ws.page_tree.reset_ratio_index(idx),
+                    }
+                }
+                if let Some(mut renderer) = shell.renderer.take() {
+                    if let Some(ws) = shell.active().and_then(|a| a.analysis()) {
+                        rebuild_seams(ws, pages_area, &mut renderer);
+                        renderer.ui.page_seams.mark_dragging(idx);
+                    }
+                    shell.renderer = Some(renderer);
+                    size_class_rebuild = true;
+                }
+            }
+
+            if let Some((idx, act)) = pod_ratio_action {
+                let owner = shell
+                    .renderer
+                    .as_ref()
+                    .and_then(|r| r.ui.pod_seams.pod_owners.get(idx).copied());
+                if let Some((page_id, local)) = owner {
+                    if let Some(ws) = shell.active_mut().and_then(|a| a.analysis_mut()) {
+                        if let Some(page) = ws.page_tree.find_mut(page_id) {
+                            match act {
+                                SeamRatioAction::Set(r) => page.pod_tree.set_ratio(local, r),
+                                SeamRatioAction::Reset => page.pod_tree.reset_ratio(local),
+                            }
+                        }
+                    }
+                }
+                if let Some(mut renderer) = shell.renderer.take() {
+                    if let Some(ws) = shell.active().and_then(|a| a.analysis()) {
+                        rebuild_seams(ws, pages_area, &mut renderer);
+                        if matches!(act, SeamRatioAction::Set(_)) {
+                            renderer.ui.pod_seams.mark_dragging(idx);
+                        }
+                    }
+                    shell.renderer = Some(renderer);
+                    size_class_rebuild = true;
+                }
+            }
+
+            if let Some(menu) = open_context_menu {
+                shell.pending_context_menu = Some(menu);
+                dismiss_context_menu = false;
+                // Rebuild so menu triggers exist in the particle tree.
+                if let Some(mut renderer) = shell.renderer.take() {
+                    rebuild_active(shell, &mut renderer);
+                    shell.renderer = Some(renderer);
+                }
+            }
+            if dismiss_context_menu && page_signal.is_none() {
+                shell.pending_context_menu = None;
+                shell.context_menu_triggers.clear();
+            }
+
             if let Some((kind, pos)) = wall_view_ptr {
                 apply_wall_view_pointer(shell, kind, pos);
             }
@@ -322,6 +439,9 @@ pub(crate) fn window_event(
             if let Some(key) = promote_key {
                 handle_promote_prop(shell, key);
             }
+            if let Some(sig) = page_signal {
+                handle_page_signal(shell, sig);
+            }
             if let Some(sig) = ws_signal {
                 handle_workspace_signal(shell, sig);
             }
@@ -330,6 +450,66 @@ pub(crate) fn window_event(
             }
             window.request_redraw();
         }
+    }
+}
+
+fn position_context_menu(root: &mut hyper_ui::Particle, rect: Rect) {
+    let hyper_ui::Particle::Surface(surface) = root else {
+        return;
+    };
+    let Some(hyper_ui::Particle::Stack(column)) = surface.child.as_deref_mut() else {
+        return;
+    };
+    // Context menu is the last column child when pending.
+    if let Some(menu) = column.children.last_mut() {
+        menu.set_layout(LayoutBox {
+            origin: rect.origin,
+            size: rect.size,
+        });
+        arrange_particle(menu, rect);
+    }
+}
+
+fn page_side_under_cursor(
+    pages_area: Rect,
+    cursor: Vec2,
+    direction: SeamDirection,
+) -> PageSide {
+    match direction {
+        SeamDirection::Vertical => {
+            if cursor.x < pages_area.origin.x + pages_area.size.x * 0.5 {
+                PageSide::First
+            } else {
+                PageSide::Second
+            }
+        }
+        SeamDirection::Horizontal => {
+            if cursor.y < pages_area.origin.y + pages_area.size.y * 0.5 {
+                PageSide::First
+            } else {
+                PageSide::Second
+            }
+        }
+    }
+}
+
+fn split_direction_for_page(
+    shell: &AppShell,
+    pages_area: Rect,
+    page_id: hyper_ui::PageId,
+) -> SeamDirection {
+    let Some(ws) = shell.active().and_then(|a| a.analysis()) else {
+        return SeamDirection::Vertical;
+    };
+    let rect = ws
+        .page_tree
+        .leaf_rects(pages_area)
+        .into_iter()
+        .find(|(id, _)| *id == page_id)
+        .map(|(_, r)| r);
+    match rect {
+        Some(r) if r.size.x >= r.size.y => SeamDirection::Vertical,
+        _ => SeamDirection::Horizontal,
     }
 }
 
@@ -382,13 +562,9 @@ fn maybe_update_size_class(shell: &mut AppShell) {
     let pages_area = shell.pages_area;
     let width = shell
         .active()
-        .and_then(|a| a.pod_tree())
-        .and_then(|p| {
-            p.leaf_rects(pages_area)
-                .into_iter()
-                .find(|(id, _)| *id == LEAF_INPUT_FORM)
-                .map(|(_, r)| r.size.x)
-        });
+        .and_then(|a| a.analysis())
+        .and_then(|ws| ws.io_rect(pages_area, IoKind::InputForm))
+        .map(|r| r.size.x);
     let Some(width) = width else {
         return;
     };
