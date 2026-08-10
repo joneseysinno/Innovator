@@ -2,6 +2,7 @@ use crate::geom::Rect;
 
 use super::SeamDirection;
 
+#[allow(dead_code)]
 pub(crate) fn split_rect(area: Rect, direction: SeamDirection, ratio: f32) -> (Rect, Rect) {
     match direction {
         SeamDirection::Vertical => {

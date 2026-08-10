@@ -1,39 +1,43 @@
 use super::workspace::HomeWorkspace;
-use crate::domains::pm::PmDescriptor;
-use crate::domains::structural::StructuralDescriptor;
 use crate::workspace::app_signal::AppSignal;
+use crate::workspace::seed;
 use hyper_ui::particles::{
     Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle,
 };
 use std::collections::HashMap;
 
-/// Build the Home dashboard and wire OpenWorkspace actions onto the workspace.
+/// Build the Home dashboard — one OpenWorkspace trigger per launchable seed.
 pub fn build_content(ws: &mut HomeWorkspace) -> Particle {
     let mut actions = HashMap::new();
 
     let title = SourceParticle::new("Innovator").with_weight(500);
-    let subtitle = SourceParticle::secondary("Home dashboard — open a workspace to begin");
+    let subtitle = SourceParticle::secondary("Home — open a workspace (visibility write)");
 
-    let analysis = TriggerParticle::primary(StructuralDescriptor::LABEL);
-    actions.insert(
-        analysis.id,
-        AppSignal::OpenWorkspace(StructuralDescriptor::KIND_ID),
-    );
+    let mut buttons = Vec::new();
+    for (i, seed) in seed::LAUNCHABLE.iter().enumerate() {
+        let trigger = if i == 0 {
+            TriggerParticle::primary(seed.label)
+        } else {
+            TriggerParticle::new(seed.label)
+        };
+        actions.insert(trigger.id, AppSignal::OpenWorkspace(seed.open_id));
+        buttons.push(Particle::Trigger(trigger));
+    }
 
-    let pm = TriggerParticle::new(PmDescriptor::LABEL);
-    actions.insert(pm.id, AppSignal::OpenWorkspace(PmDescriptor::KIND_ID));
+    // Wrap buttons in rows of 3.
+    let mut rows = Vec::new();
+    for chunk in buttons.chunks(3) {
+        rows.push(Particle::Stack(
+            StackParticle::row(chunk.to_vec()).with_gap(12.0),
+        ));
+    }
 
-    let actions_row = StackParticle::row(vec![
-        Particle::Trigger(analysis),
-        Particle::Trigger(pm),
-    ])
-    .with_gap(12.0);
-
-    let body = StackParticle::column(vec![
-        Particle::Source(title),
-        Particle::Source(subtitle),
-        Particle::Stack(actions_row),
-    ])
+    let body = StackParticle::column(
+        std::iter::once(Particle::Source(title))
+            .chain(std::iter::once(Particle::Source(subtitle)))
+            .chain(rows)
+            .collect(),
+    )
     .with_gap(14.0);
 
     ws.actions = actions;

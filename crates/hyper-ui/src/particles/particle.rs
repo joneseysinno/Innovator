@@ -2,7 +2,7 @@ use crate::layout::LayoutBox;
 use crate::particles::find::{find_mut_recursive, find_recursive};
 use crate::particles::{
     FieldParticle, ParticleId, SignalParticle, SinkParticle, SlotParticle, SourceParticle,
-    StackParticle, SurfaceParticle, TriggerParticle, ViewParticle,
+    StackParticle, SurfaceParticle, TriggerParticle, ViewParticle, ViewportParticle,
 };
 
 /// Retained particle tree node.
@@ -17,6 +17,7 @@ pub enum Particle {
     Sink(SinkParticle),
     View(ViewParticle),
     Signal(SignalParticle),
+    Viewport(ViewportParticle),
 }
 
 impl Particle {
@@ -31,6 +32,7 @@ impl Particle {
             Self::Sink(p) => p.id,
             Self::View(p) => p.id,
             Self::Signal(p) => p.id,
+            Self::Viewport(p) => p.id,
         }
     }
 
@@ -45,6 +47,7 @@ impl Particle {
             Self::Sink(p) => p.layout,
             Self::View(p) => p.layout,
             Self::Signal(p) => p.layout,
+            Self::Viewport(p) => p.layout,
         }
     }
 
@@ -59,11 +62,15 @@ impl Particle {
             Self::Sink(p) => p.layout = layout,
             Self::View(p) => p.layout = layout,
             Self::Signal(p) => p.layout = layout,
+            Self::Viewport(p) => p.layout = layout,
         }
     }
 
     pub fn is_interactive(&self) -> bool {
-        matches!(self, Self::Field(_) | Self::Trigger(_) | Self::Sink(_))
+        matches!(
+            self,
+            Self::Field(_) | Self::Trigger(_) | Self::Sink(_) | Self::Viewport(_)
+        )
     }
 
     pub fn find_mut(&mut self, id: ParticleId) -> Option<&mut Particle> {

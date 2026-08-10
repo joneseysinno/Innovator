@@ -3,5 +3,6 @@ pub(crate) enum HitKind {
     Trigger,
     Field,
     Sink,
+    Viewport,
     Other,
 }

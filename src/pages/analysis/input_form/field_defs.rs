@@ -1,4 +1,4 @@
-use crate::workspace::size_class::SizeClass;
+use crate::pages::analysis::input_form::form_density::FormDensity;
 
 /// Standard form field definition.
 #[derive(Debug, Clone, Copy)]
@@ -144,7 +144,7 @@ pub const LOADING: &[FieldDef] = &[
 ];
 
 impl FieldDef {
-    pub fn display_label(self, size: SizeClass) -> &'static str {
+    pub fn display_label(self, size: FormDensity) -> &'static str {
         if size.hide_labels() {
             ""
         } else if size.abbreviate() {

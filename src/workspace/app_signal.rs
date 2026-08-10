@@ -6,6 +6,6 @@ pub enum AppSignal {
     SelectWorkspace(WorkspaceId),
     /// `+` on the tab strip — always adds Structural Analysis.
     AddWorkspace,
-    /// Focus an existing tab of this kind, or create one.
+    /// Focus an existing seeded workspace — visibility write + focus update.
     OpenWorkspace(&'static str),
 }

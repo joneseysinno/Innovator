@@ -2,6 +2,7 @@
 
 pub mod auth;
 pub mod components;
+pub mod devtools;
 pub mod domains;
 pub mod engine;
 pub mod pages;

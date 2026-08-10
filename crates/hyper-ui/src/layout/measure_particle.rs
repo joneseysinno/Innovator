@@ -15,6 +15,7 @@ pub fn measure_particle(particle: &Particle, available: Vec2) -> Vec2 {
         Particle::Trigger(p) => p.measure(available),
         Particle::Sink(p) => p.measure(available),
         Particle::View(p) => p.measure(available),
+        Particle::Viewport(p) => p.measure(available),
         Particle::Signal(_) => Vec2::ZERO,
     }
 }

@@ -1,5 +1,6 @@
 pub mod build;
 pub mod field_defs;
+pub mod form_density;
 pub mod section;
 
 use crate::domains::structural::{AnalysisAction, BuilderFieldSlot};
@@ -18,3 +19,4 @@ pub struct InputFormIO {
 }
 
 pub use build::build_input_form;
+pub use form_density::FormDensity;

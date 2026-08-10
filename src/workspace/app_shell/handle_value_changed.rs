@@ -2,22 +2,17 @@ use super::rebuild_active::rebuild_active;
 use super::AppShell;
 use crate::pages::analysis::wall_view::build_section_spatial;
 use crate::walls::{field_value_to_prop, is_geometry_or_rebar_key, persist_wall};
-use crate::domains::structural::StructuralWorkspace;
 use hyper_ui::{apply_signal_text, FieldValue, ParticleId};
 use hypernode::HyperNode;
 
 /// Commit a form field to the active wall HyperNode and persist.
 pub fn handle_value_changed(shell: &mut AppShell, field_id: ParticleId, value: FieldValue) {
-    let active_id = shell.active_id;
-    let Some(idx) = shell.workspaces.iter().position(|w| w.id() == active_id) else {
+    let Some(idx) = shell.workspaces.iter().position(|w| w.is_active()) else {
         return;
     };
 
     let (rebuild_ui, status) = {
-        let Some(ws) = shell.workspaces[idx]
-            .as_any_mut()
-            .downcast_mut::<StructuralWorkspace>()
-        else {
+        let Some(ws) = shell.workspaces[idx].structural_mut() else {
             return;
         };
         let Some(key) = ws.field_props.get(&field_id).cloned() else {
@@ -57,9 +52,8 @@ pub fn handle_value_changed(shell: &mut AppShell, field_id: ParticleId, value: F
             apply_signal_text(&mut renderer.ui.tree, id, status);
         }
         shell.renderer = Some(renderer);
-    } else {
-        let status_id = shell.active().and_then(|a| a.status_id());
-        if let (Some(id), Some(renderer)) = (status_id, shell.renderer.as_mut()) {
+    } else if let Some(id) = shell.active().and_then(|a| a.status_id()) {
+        if let Some(renderer) = shell.renderer.as_mut() {
             apply_signal_text(&mut renderer.ui.tree, id, status);
         }
     }

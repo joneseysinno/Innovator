@@ -1,7 +1,7 @@
 use super::field_defs::FieldDef;
 use crate::components::{engineer_input, engineer_text_input};
 use crate::walls::format_prop;
-use crate::workspace::size_class::SizeClass;
+use crate::pages::analysis::input_form::form_density::FormDensity;
 use hyper_ui::particles::{Particle, ParticleId, SourceParticle, StackParticle};
 use hypernode::{HyperNode, Node, PropValue};
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ pub fn build_section(
     title: &str,
     defs: &[FieldDef],
     node: Option<&Node>,
-    size: SizeClass,
+    size: FormDensity,
     field_props: &mut HashMap<ParticleId, String>,
     u8_fields: &mut HashMap<ParticleId, ()>,
 ) -> Particle {

@@ -16,6 +16,7 @@ pub mod stack;
 pub mod surface;
 pub mod trigger;
 pub mod view;
+pub mod viewport;
 
 pub use dirty::DirtyFlags;
 pub use field::{FieldParticle, FieldState, FieldValue, NumericValue};
@@ -30,3 +31,4 @@ pub use surface::SurfaceParticle;
 pub use tree::ParticleTree;
 pub use trigger::{TriggerParticle, TriggerState};
 pub use view::ViewParticle;
+pub use viewport::ViewportParticle;

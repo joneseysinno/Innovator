@@ -119,8 +119,8 @@ impl DemoApp {
         }
     }
 
-    fn rebuild_dividers(pods: &PodList, pod_area: Rect, renderer: &mut HyperRenderer) {
-        let layout = pods.layout(pod_area);
+    fn rebuild_dividers(pods: &mut PodList, pod_area: Rect, renderer: &mut HyperRenderer) {
+        let layout = pods.layout_rects(pod_area);
         renderer
             .ui
             .pod_dividers
@@ -154,9 +154,9 @@ impl ApplicationHandler for DemoApp {
 
         let size = window.inner_size();
         self.pod_area = Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
-        Self::rebuild_dividers(&self.pods, self.pod_area, &mut renderer);
+        Self::rebuild_dividers(&mut self.pods, self.pod_area, &mut renderer);
 
-        let leaves = self.pods.layout(self.pod_area);
+        let leaves = self.pods.layout_rects(self.pod_area);
         if let Some((_, top)) = leaves.first() {
             renderer.ui.layout(*top);
         }
@@ -181,8 +181,8 @@ impl ApplicationHandler for DemoApp {
                 renderer.resize(*size);
                 self.pod_area =
                     Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
-                Self::rebuild_dividers(&self.pods, self.pod_area, renderer);
-                if let Some((_, top)) = self.pods.layout(self.pod_area).first().copied() {
+                Self::rebuild_dividers(&mut self.pods, self.pod_area, renderer);
+                if let Some((_, top)) = self.pods.layout_rects(self.pod_area).first().copied() {
                     renderer.ui.layout(top);
                 }
                 window.request_redraw();
@@ -194,7 +194,7 @@ impl ApplicationHandler for DemoApp {
                     }
                 }
 
-                let leaves = self.pods.layout(self.pod_area);
+                let leaves = self.pods.layout_rects(self.pod_area);
                 if let Some((_, top)) = leaves.first().copied() {
                     if renderer.ui.tree.dirty.needs_layout() {
                         renderer.ui.layout(top);
@@ -248,11 +248,11 @@ impl ApplicationHandler for DemoApp {
                     match ev {
                         UiEvent::PodDividerDrag { above, delta } => {
                             self.pods
-                                .apply_divider_drag(*above, *delta, self.pod_area.size.y);
+                                .apply_divider_drag(*above, *delta, self.pod_area.size.y, hyper_ui::SizeClass::from_width(self.pod_area.size.x));
                             changed = true;
                         }
                         UiEvent::PodDividerEqualize { .. } => {
-                            self.pods.equalize();
+                            self.pods.equalize(hyper_ui::SizeClass::from_width(self.pod_area.size.x));
                             changed = true;
                         }
                         UiEvent::PodCollapse { id } => {
@@ -263,9 +263,9 @@ impl ApplicationHandler for DemoApp {
                     }
                 }
                 if changed {
-                    Self::rebuild_dividers(&self.pods, self.pod_area, renderer);
+                    Self::rebuild_dividers(&mut self.pods, self.pod_area, renderer);
                     renderer.ui.tree.mark_all_dirty();
-                    if let Some((_, top)) = self.pods.layout(self.pod_area).first().copied() {
+                    if let Some((_, top)) = self.pods.layout_rects(self.pod_area).first().copied() {
                         renderer.ui.layout(top);
                     }
                 }
@@ -327,7 +327,7 @@ impl ApplicationHandler for DemoApp {
 
                 if let WindowEvent::CursorMoved { position, .. } = other {
                     let pos = Vec2::new(position.x as f32, position.y as f32);
-                    if let Some((_, bottom)) = self.pods.layout(self.pod_area).get(1) {
+                    if let Some((_, bottom)) = self.pods.layout_rects(self.pod_area).get(1) {
                         if bottom.contains(pos) {
                             // wheel zoom covers scene interaction for the demo
                         }

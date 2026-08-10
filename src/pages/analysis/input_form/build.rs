@@ -5,7 +5,7 @@ use crate::components::{engineer_input, engineer_text_input};
 use crate::pages::analysis::field_builder::build_field_builder;
 use crate::walls::{format_prop, is_standard_key};
 use crate::domains::structural::{AnalysisAction, FieldBuilderDraft};
-use crate::workspace::size_class::SizeClass;
+use crate::pages::analysis::input_form::form_density::FormDensity;
 use hyper_ui::particles::{
     Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle,
 };
@@ -15,7 +15,7 @@ use std::collections::HashMap;
 /// Build InputFormIO for the active wall (empty hint when none).
 pub fn build_input_form(
     node: Option<&Node>,
-    size: SizeClass,
+    size: FormDensity,
     field_builder: Option<&FieldBuilderDraft>,
 ) -> InputFormIO {
     let mut field_props = HashMap::new();

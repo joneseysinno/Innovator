@@ -1,14 +1,14 @@
-/// Pod-level density for Analysis form labels.
+//! Form label density for Analysis InputForm (not viewport SizeClass).
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum SizeClass {
+pub enum FormDensity {
     #[default]
     Full,
     Compact,
     Minimal,
 }
 
-impl SizeClass {
-    /// Plan Phase 3/6 thresholds — abbreviate below 280px.
+impl FormDensity {
     pub fn from_width(width: f32) -> Self {
         if width > 320.0 {
             Self::Full

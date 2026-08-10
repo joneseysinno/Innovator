@@ -1,43 +1,51 @@
+use crate::container::Visibility;
 use crate::geom::{Rect, Vec2};
 use crate::page::{PageSeamId, PageTree};
 
-use super::{split_rect, SeamDirection, SeamDrawCmd};
+use super::{SeamDirection, SeamDrawCmd};
 
+/// Rebuild seams between adjacent **Shown** page rects (no stored ratio).
 pub(crate) fn rebuild_page_seams(pages: &PageTree, area: Rect, out: &mut Vec<SeamDrawCmd>) {
-    let mut seam_index = 0u32;
-    rebuild_page_seams_inner(pages, area, out, &mut seam_index);
-}
+    let leaves = pages.leaves();
+    let shown: Vec<_> = leaves
+        .iter()
+        .filter(|p| p.state.resolved() == Visibility::Shown)
+        .collect();
+    if shown.len() < 2 {
+        return;
+    }
 
-fn rebuild_page_seams_inner(
-    pages: &PageTree,
-    area: Rect,
-    out: &mut Vec<SeamDrawCmd>,
-    seam_index: &mut u32,
-) {
-    match pages {
-        PageTree::Leaf(_) => {}
-        PageTree::Split {
-            direction,
-            ratio,
-            first,
-            second,
-        } => {
-            let (a, b) = split_rect(area, *direction, *ratio);
-            let (start, end) = seam_endpoints(*direction, a);
-            let id = PageSeamId(*seam_index);
-            *seam_index += 1;
-            out.push(SeamDrawCmd {
-                start,
-                end,
-                direction: *direction,
-                hovered: false,
-                dragging: false,
-                seam_id: id,
-                split_area: area,
-            });
-            rebuild_page_seams_inner(first, a, out, seam_index);
-            rebuild_page_seams_inner(second, b, out, seam_index);
-        }
+    let widths: Vec<f32> = shown
+        .iter()
+        .map(|p| {
+            let w = p.state.rect().size.x;
+            if w > 1.0 {
+                w
+            } else {
+                p.state.extent.min.max(1.0)
+            }
+        })
+        .collect();
+    let sum: f32 = widths.iter().sum::<f32>().max(1.0);
+    let scale = area.size.x / sum;
+
+    let mut x = area.origin.x;
+    for i in 0..shown.len() - 1 {
+        let w = widths[i] * scale;
+        let second_w = widths[i + 1] * scale;
+        let first = Rect::from_xywh(x, area.origin.y, w, area.size.y);
+        let split_area = Rect::from_xywh(x, area.origin.y, w + second_w, area.size.y);
+        let (start, end) = seam_endpoints(SeamDirection::Vertical, first);
+        out.push(SeamDrawCmd {
+            start,
+            end,
+            direction: SeamDirection::Vertical,
+            hovered: false,
+            dragging: false,
+            seam_id: PageSeamId(i as u32),
+            split_area,
+        });
+        x += w;
     }
 }
 

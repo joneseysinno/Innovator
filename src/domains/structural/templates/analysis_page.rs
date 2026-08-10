@@ -16,11 +16,9 @@ pub fn analysis_page(id: PageId) -> PageTemplate {
         Pod::new(PodId(1), "Wall View").with_height(0.70),
     );
     let ios = vec![(PodId(0), IoKind::InputForm), (PodId(1), IoKind::WallView)];
-    let node = PageNode {
-        id,
-        pods,
-        header,
-        icon_rail: None,
-    };
+    let node = PageNode::new(id, pods)
+        .with_label("Analysis", "A")
+        .with_extent(super::analysis_extent())
+        .with_header(header);
     (node, ios)
 }

@@ -7,6 +7,7 @@ mod mark_layout;
 mod mark_paint;
 mod mark_text;
 mod new;
+mod scroll;
 
 use crate::particles::{DirtyFlags, Particle};
 

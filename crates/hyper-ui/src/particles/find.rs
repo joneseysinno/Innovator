@@ -17,6 +17,7 @@ pub(crate) fn find_recursive(particle: &Particle, id: ParticleId) -> Option<&Par
         Particle::Slot(p) => p.child.as_ref().and_then(|c| find_recursive(c, id)),
         Particle::Sink(p) => p.child.as_ref().and_then(|c| find_recursive(c, id)),
         Particle::View(p) => p.child.as_ref().and_then(|c| find_recursive(c, id)),
+        Particle::Viewport(p) => p.child.as_ref().and_then(|c| find_recursive(c, id)),
         _ => None,
     }
 }
@@ -38,6 +39,7 @@ pub(crate) fn find_mut_recursive(particle: &mut Particle, id: ParticleId) -> Opt
         Particle::Slot(p) => p.child.as_mut().and_then(|c| find_mut_recursive(c, id)),
         Particle::Sink(p) => p.child.as_mut().and_then(|c| find_mut_recursive(c, id)),
         Particle::View(p) => p.child.as_mut().and_then(|c| find_mut_recursive(c, id)),
+        Particle::Viewport(p) => p.child.as_mut().and_then(|c| find_mut_recursive(c, id)),
         _ => None,
     }
 }

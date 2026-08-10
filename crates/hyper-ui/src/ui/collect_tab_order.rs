@@ -34,6 +34,11 @@ fn collect_tab_order_inner(particle: &Particle, out: &mut Vec<ParticleId>) {
                 collect_tab_order_inner(c, out);
             }
         }
+        Particle::Viewport(p) => {
+            if let Some(c) = p.child.as_ref() {
+                collect_tab_order_inner(c, out);
+            }
+        }
         _ => {}
     }
 }

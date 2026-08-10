@@ -36,6 +36,22 @@ impl Rect {
         }
     }
 
+    /// Intersection of two rects. Empty (`size` ≤ 0) if they do not overlap.
+    pub fn intersect(&self, other: &Self) -> Self {
+        let x0 = self.origin.x.max(other.origin.x);
+        let y0 = self.origin.y.max(other.origin.y);
+        let x1 = (self.origin.x + self.size.x).min(other.origin.x + other.size.x);
+        let y1 = (self.origin.y + self.size.y).min(other.origin.y + other.size.y);
+        Self {
+            origin: Vec2::new(x0, y0),
+            size: Vec2::new((x1 - x0).max(0.0), (y1 - y0).max(0.0)),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size.x <= 0.0 || self.size.y <= 0.0
+    }
+
     pub fn with_padding(&self, pad: f32) -> Self {
         Self {
             origin: Vec2::new(self.origin.x + pad, self.origin.y + pad),

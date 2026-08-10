@@ -12,4 +12,3 @@ pub use renderer::handle_event::SeamRatioAction;
 pub use renderer::SeamRenderer;
 
 pub(crate) use rebuild_seams::rebuild_page_seams;
-pub(crate) use split_rect::split_rect;

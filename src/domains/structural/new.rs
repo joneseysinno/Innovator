@@ -2,20 +2,17 @@ use super::kind::AnalysisKind;
 use super::templates::initial_page_tree;
 use super::workspace::StructuralWorkspace;
 use crate::engine::AnalysisOutput;
+use crate::pages::analysis::input_form::form_density::FormDensity;
 use crate::results::{load_results_for_wall, parse_checks};
 use crate::walls::load_walls;
-use crate::domains::structural::StructuralDescriptor;
 use crate::workspace::header::build_header;
-use crate::workspace::size_class::SizeClass;
-use crate::workspace::tab::WorkspaceTab;
-use crate::workspace::workspace_id::WorkspaceId;
 use hyper_ui::InMemoryWorldSpatial;
 use hypernode::{HyperNode, PropValue};
 use infinite_db::InfiniteDb;
 use std::collections::HashMap;
 
 impl StructuralWorkspace {
-    pub fn new(id: WorkspaceId, db: &mut InfiniteDb) -> Self {
+    pub fn new(db: &mut InfiniteDb) -> Self {
         let graph = load_walls(db);
         let active_wall = graph.nodes.keys().next().copied();
         let (last_results, last_analysis) = match active_wall {
@@ -24,12 +21,6 @@ impl StructuralWorkspace {
         };
         let (page_tree, page_ios) = initial_page_tree();
         Self {
-            tab: WorkspaceTab::new(
-                id,
-                StructuralDescriptor::KIND_ID,
-                StructuralDescriptor::LABEL,
-                StructuralDescriptor::ICON,
-            ),
             header: Some(build_header()),
             page_tree,
             page_ios,
@@ -45,7 +36,7 @@ impl StructuralWorkspace {
             builder_slots: HashMap::new(),
             promote_props: HashMap::new(),
             field_builder: None,
-            input_size_class: SizeClass::Full,
+            input_size_class: FormDensity::Full,
             wall_view_sink: None,
             wall_spatial: InMemoryWorldSpatial::default(),
             wall_view_last_pos: None,
@@ -55,14 +46,13 @@ impl StructuralWorkspace {
             results_triggers: HashMap::new(),
             icon_rail_triggers: HashMap::new(),
             pod_collapse_triggers: HashMap::new(),
+            page_viewport_ids: HashMap::new(),
             page_split_triggers: HashMap::new(),
+            page_show_triggers: HashMap::new(),
+            page_overrides: hyper_ui::Overrides::new(),
+            focused_page: hyper_ui::PageId(0),
             analysis_header_status_id: None,
         }
-    }
-
-    pub fn with_title(mut self, title: impl Into<String>) -> Self {
-        self.tab.title = title.into();
-        self
     }
 
     /// Select a wall; returns true if the selection changed.

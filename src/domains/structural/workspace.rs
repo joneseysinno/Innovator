@@ -1,25 +1,21 @@
 //! Structural analysis workspace (optional header + page tree of spatial containers).
 
 use super::action::AnalysisAction;
-use super::build_pages;
 use super::field_builder_draft::{BuilderFieldSlot, FieldBuilderDraft};
 use super::io_kind::IoKind;
 use super::kind::AnalysisKind;
-use super::KIND_ID;
 use crate::engine::AnalysisOutput;
-use crate::workspace::facade::{HandleResult, WorkspaceFacade};
+use crate::pages::analysis::input_form::form_density::FormDensity;
 use crate::workspace::header::WorkspaceHeader;
 use crate::workspace::signal::WorkspaceSignal;
-use crate::workspace::size_class::SizeClass;
-use crate::workspace::tab::WorkspaceTab;
-use hyper_ui::particles::Particle;
-use hyper_ui::{InMemoryWorldSpatial, PageId, PageTree, ParticleId, PodId};
+use hyper_ui::{
+    FocusPath, InMemoryWorldSpatial, Overrides, PageId, PageNode, PageTree, ParticleId, PodId,
+    SizeClass as LayoutSizeClass, Viewport,
+};
 use hypernode::{Graph, Node, NodeId};
-use std::any::Any;
 use std::collections::HashMap;
 
 pub struct StructuralWorkspace {
-    pub tab: WorkspaceTab,
     /// Action header — present for this workspace kind.
     pub header: Option<WorkspaceHeader>,
     /// Page-level binary split tree.
@@ -49,8 +45,8 @@ pub struct StructuralWorkspace {
     pub promote_props: HashMap<ParticleId, String>,
     /// Open inline field builder draft.
     pub field_builder: Option<FieldBuilderDraft>,
-    /// Input form SizeClass from pod width.
-    pub input_size_class: SizeClass,
+    /// Input form label density from pod width.
+    pub input_size_class: FormDensity,
     /// Wall view pan/zoom sink.
     pub wall_view_sink: Option<ParticleId>,
     /// Layer A spatial for the active wall section.
@@ -68,8 +64,16 @@ pub struct StructuralWorkspace {
     pub icon_rail_triggers: HashMap<ParticleId, (PageId, PodId)>,
     /// Pod title-bar triggers: ParticleId → PodId (toggle collapse).
     pub pod_collapse_triggers: HashMap<ParticleId, PodId>,
+    /// Per-page scroll viewport particle ids.
+    pub page_viewport_ids: HashMap<PageId, ParticleId>,
     /// Page header split triggers: ParticleId → PageId.
     pub page_split_triggers: HashMap<ParticleId, PageId>,
+    /// Hidden-page rail triggers: ParticleId → PageId (bring into focus).
+    pub page_show_triggers: HashMap<ParticleId, PageId>,
+    /// Size-class-scoped page size overrides from seam drags.
+    pub page_overrides: Overrides,
+    /// Focused page for cascade priority.
+    pub focused_page: PageId,
     /// Analysis page header status source (live ratios).
     pub analysis_header_status_id: Option<ParticleId>,
 }
@@ -77,6 +81,95 @@ pub struct StructuralWorkspace {
 impl StructuralWorkspace {
     pub fn status_id(&self) -> Option<hyper_ui::ParticleId> {
         self.header.as_ref().map(|h| h.status_id)
+    }
+
+    pub fn focus_path(&self) -> FocusPath {
+        FocusPath::new(vec![PageNode::container_id(self.focused_page)])
+    }
+
+    /// Resolve page cascade into `PageNode.state` and return Shown leaf rects.
+    pub fn layout_pages(
+        &mut self,
+        pages_area: hyper_ui::Rect,
+        app_focus: &FocusPath,
+        viewport: &Viewport,
+    ) -> (Vec<(PageId, hyper_ui::Rect)>, hyper_ui::ResolveReport) {
+        // Sync focused_page from the app chain when it names a leaf in this tree.
+        if let Some(page_id) = page_id_on_focus(app_focus, &self.page_tree) {
+            self.focused_page = page_id;
+        }
+        let focus = self.focus_path();
+        let (rects, report) =
+            self.page_tree
+                .layout(pages_area, &focus, &self.page_overrides, viewport);
+        // If focus was hidden somehow, keep floor survivor focused.
+        if let Some((id, _)) = rects.first() {
+            if self
+                .page_tree
+                .find(self.focused_page)
+                .map(|p| p.state.resolved() != hyper_ui::Visibility::Shown)
+                .unwrap_or(true)
+            {
+                self.focused_page = *id;
+            }
+        }
+        (rects, report)
+    }
+
+    /// Apply a seam drag between adjacent Shown pages at `seam_index`.
+    pub fn apply_page_seam_drag(
+        &mut self,
+        seam_index: usize,
+        ratio: f32,
+        pages_area: hyper_ui::Rect,
+    ) {
+        let shown: Vec<_> = self
+            .page_tree
+            .leaves()
+            .into_iter()
+            .filter(|p| p.state.resolved() == hyper_ui::Visibility::Shown)
+            .map(|p| p.id)
+            .collect();
+        if seam_index + 1 >= shown.len() {
+            return;
+        }
+        let left = shown[seam_index];
+        let right = shown[seam_index + 1];
+        let class = LayoutSizeClass::from_width(pages_area.size.x.max(1.0));
+        // `ratio` is the fraction of the two-page split_area for the left page.
+        // Convert to fractions of the full arrangement axis using current widths.
+        let rects = self.page_tree.leaf_rects(pages_area);
+        let left_r = rects.iter().find(|(id, _)| *id == left).map(|(_, r)| r.size.x);
+        let right_r = rects.iter().find(|(id, _)| *id == right).map(|(_, r)| r.size.x);
+        let (Some(lw), Some(rw)) = (left_r, right_r) else {
+            return;
+        };
+        let pair = (lw + rw).max(1.0);
+        let new_left = (pair * ratio.clamp(0.1, 0.9)).max(1.0);
+        let new_right = (pair - new_left).max(1.0);
+        let denom = pages_area.size.x.max(1.0);
+        self.page_overrides
+            .set(PageNode::container_id(left), class, new_left / denom);
+        self.page_overrides
+            .set(PageNode::container_id(right), class, new_right / denom);
+    }
+
+    pub fn reset_page_seam(&mut self, seam_index: usize, pages_area: hyper_ui::Rect) {
+        let shown: Vec<_> = self
+            .page_tree
+            .leaves()
+            .into_iter()
+            .filter(|p| p.state.resolved() == hyper_ui::Visibility::Shown)
+            .map(|p| p.id)
+            .collect();
+        if seam_index + 1 >= shown.len() {
+            return;
+        }
+        let class = LayoutSizeClass::from_width(pages_area.size.x.max(1.0));
+        self.page_overrides
+            .remove(PageNode::container_id(shown[seam_index]), class);
+        self.page_overrides
+            .remove(PageNode::container_id(shown[seam_index + 1]), class);
     }
 
     /// Resolve a pod rect for an IoKind across the page tree.
@@ -89,7 +182,7 @@ impl StructuralWorkspace {
             let page = self.page_tree.find(page_id)?;
             let content = page.content_rect(page_rect);
             let ios = self.page_ios.get(&page_id)?;
-            let leaves = page.pods.layout(content);
+            let leaves = page.pods.layout_rects(content);
             for (pod_id, io) in ios {
                 if *io == kind {
                     if let Some((_, r)) = leaves.iter().find(|(id, _)| *id == *pod_id) {
@@ -102,50 +195,13 @@ impl StructuralWorkspace {
     }
 }
 
-impl WorkspaceFacade for StructuralWorkspace {
-    fn tab(&self) -> &WorkspaceTab {
-        &self.tab
+fn page_id_on_focus(focus: &FocusPath, tree: &PageTree) -> Option<PageId> {
+    for id in &focus.chain {
+        for leaf in tree.leaves() {
+            if PageNode::container_id(leaf.id) == *id {
+                return Some(leaf.id);
+            }
+        }
     }
-
-    fn kind_id(&self) -> &'static str {
-        KIND_ID
-    }
-
-    fn header(&self) -> Option<&WorkspaceHeader> {
-        self.header.as_ref()
-    }
-
-    fn status_id(&self) -> Option<ParticleId> {
-        self.header.as_ref().map(|h| h.status_id)
-    }
-
-    fn page_tree(&self) -> Option<&PageTree> {
-        Some(&self.page_tree)
-    }
-
-    fn page_tree_mut(&mut self) -> Option<&mut PageTree> {
-        Some(&mut self.page_tree)
-    }
-
-    fn build_content(&mut self) -> Particle {
-        build_pages::build_pages(self)
-    }
-
-    fn handle_workspace_signal(
-        &mut self,
-        signal: WorkspaceSignal,
-        _db: &mut infinite_db::InfiniteDb,
-        _signal_tx: &flume::Sender<String>,
-    ) -> HandleResult {
-        let _ = signal;
-        HandleResult::Ignored
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
+    None
 }

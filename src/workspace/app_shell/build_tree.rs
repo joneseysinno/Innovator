@@ -1,15 +1,19 @@
+use crate::devtools::build_overlay;
 use crate::workspace::app_shell::page_context_menu::build_page_context_menu;
 use crate::workspace::app_shell::AppShell;
-use crate::domains::empty::build_content::build_content as build_empty;
 use crate::workspace::tab_strip::build_tab_strip;
 use hyper_ui::layout::LayoutBox;
-use hyper_ui::particles::{Particle, StackParticle, SurfaceParticle};
+use hyper_ui::particles::{Particle, SourceParticle, StackParticle, SurfaceParticle};
 use hyper_ui::Rect;
 
 /// Rebuild the full particle tree from tab strip + active workspace.
 pub fn build_tree(shell: &mut AppShell) -> Particle {
-    let tabs: Vec<_> = shell.workspaces.iter().map(|w| w.tab().clone()).collect();
-    shell.tab_strip = build_tab_strip(&tabs, shell.active_id);
+    let tabs: Vec<_> = shell.workspaces.iter().map(|w| w.tab()).collect();
+    let active_id = shell
+        .active()
+        .map(|w| w.id())
+        .unwrap_or(crate::workspace::WorkspaceId(0));
+    shell.tab_strip = build_tab_strip(&tabs, active_id);
 
     let mut column = vec![shell.tab_strip.particle.clone()];
 
@@ -24,7 +28,7 @@ pub fn build_tree(shell: &mut AppShell) -> Particle {
     let body = shell
         .active_mut()
         .map(|a| a.build_content())
-        .unwrap_or_else(build_empty);
+        .unwrap_or_else(empty_body);
     column.push(body);
 
     if let Some(menu) = shell.pending_context_menu.clone() {
@@ -39,6 +43,10 @@ pub fn build_tree(shell: &mut AppShell) -> Particle {
         column.push(particle);
     }
 
+    if shell.overlay_open {
+        column.push(build_overlay(shell));
+    }
+
     shell.has_header = shell.active().and_then(|a| a.header()).is_some();
 
     Particle::Surface(
@@ -49,4 +57,8 @@ pub fn build_tree(shell: &mut AppShell) -> Particle {
                 StackParticle::column(column).with_gap(0.0),
             )),
     )
+}
+
+fn empty_body() -> Particle {
+    Particle::Source(SourceParticle::secondary("No active workspace"))
 }

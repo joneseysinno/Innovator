@@ -39,6 +39,18 @@ pub(crate) fn hit_test_rev(particle: &Particle, pos: Vec2) -> Option<ParticleId>
                 }
             }
         }
+        Particle::Viewport(p) => {
+            // Hits outside the clip rect never reach scrolled-out children.
+            let clip = Rect::new(p.layout.origin, p.layout.size);
+            if !clip.contains(pos) {
+                return None;
+            }
+            if let Some(child) = p.child.as_ref() {
+                if let Some(id) = hit_test_rev(child, pos) {
+                    return Some(id);
+                }
+            }
+        }
         _ => {}
     }
     let layout = particle.layout();
@@ -47,4 +59,35 @@ pub(crate) fn hit_test_rev(particle: &Particle, pos: Vec2) -> Option<ParticleId>
         return Some(particle.id());
     }
     None
+}
+
+/// Innermost viewport whose clip rect contains `pos` (for wheel / drag scroll).
+pub(crate) fn find_viewport_at(particle: &Particle, pos: Vec2) -> Option<ParticleId> {
+    match particle {
+        Particle::Viewport(p) => {
+            let clip = Rect::new(p.layout.origin, p.layout.size);
+            if !clip.contains(pos) {
+                return None;
+            }
+            if let Some(child) = p.child.as_ref() {
+                if let Some(id) = find_viewport_at(child, pos) {
+                    return Some(id);
+                }
+            }
+            Some(p.id)
+        }
+        Particle::Stack(p) => {
+            for child in p.children.iter().rev() {
+                if let Some(id) = find_viewport_at(child, pos) {
+                    return Some(id);
+                }
+            }
+            None
+        }
+        Particle::Surface(p) => p.child.as_ref().and_then(|c| find_viewport_at(c, pos)),
+        Particle::Slot(p) => p.child.as_ref().and_then(|c| find_viewport_at(c, pos)),
+        Particle::Sink(p) => p.child.as_ref().and_then(|c| find_viewport_at(c, pos)),
+        Particle::View(p) => p.child.as_ref().and_then(|c| find_viewport_at(c, pos)),
+        _ => None,
+    }
 }

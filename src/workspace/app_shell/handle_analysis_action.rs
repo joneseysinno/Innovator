@@ -1,16 +1,13 @@
 use super::rebuild_active::rebuild_active;
 use super::AppShell;
+use crate::domains::structural::{AnalysisAction, CustomFieldKind, FieldBuilderDraft};
 use crate::walls::{persist_wall, slug_key};
-use crate::domains::structural::{
-    AnalysisAction, CustomFieldKind, FieldBuilderDraft, StructuralWorkspace,
-};
 use hyper_ui::apply_signal_text;
 use hypernode::{EdgeId, EdgeKind, HyperEdge, HyperNode, NodeId, PropValue};
 
 /// Handle Analysis-page triggers (FieldBuilder / type chips).
 pub fn handle_analysis_action(shell: &mut AppShell, action: AnalysisAction) {
-    let active_id = shell.active_id;
-    let Some(idx) = shell.workspaces.iter().position(|w| w.id() == active_id) else {
+    let Some(idx) = shell.workspaces.iter().position(|w| w.is_active()) else {
         return;
     };
 
@@ -18,10 +15,7 @@ pub fn handle_analysis_action(shell: &mut AppShell, action: AnalysisAction) {
     let mut status = None;
 
     {
-        let Some(ws) = shell.workspaces[idx]
-            .as_any_mut()
-            .downcast_mut::<StructuralWorkspace>()
-        else {
+        let Some(ws) = shell.workspaces[idx].structural_mut() else {
             return;
         };
 
@@ -91,17 +85,13 @@ pub fn handle_analysis_action(shell: &mut AppShell, action: AnalysisAction) {
 
 /// Promote a custom property to all walls via a Wave hyperedge.
 pub fn handle_promote_prop(shell: &mut AppShell, key: String) {
-    let active_id = shell.active_id;
-    let Some(idx) = shell.workspaces.iter().position(|w| w.id() == active_id) else {
+    let Some(idx) = shell.workspaces.iter().position(|w| w.is_active()) else {
         return;
     };
 
     let status;
     {
-        let Some(ws) = shell.workspaces[idx]
-            .as_any_mut()
-            .downcast_mut::<StructuralWorkspace>()
-        else {
+        let Some(ws) = shell.workspaces[idx].structural_mut() else {
             return;
         };
         let Some(wall_id) = ws.active_wall else {

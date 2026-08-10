@@ -10,3 +10,4 @@ Cargo.lock
 *.swp
 *.swo
 innovator.db/
+layout.json

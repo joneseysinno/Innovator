@@ -6,6 +6,7 @@ pub fn select_workspace(shell: &mut AppShell, id: WorkspaceId) {
     if !shell.set_active(id) {
         return;
     }
+    shell.persist_layout();
     let mut renderer = match shell.renderer.take() {
         Some(r) => r,
         None => return,

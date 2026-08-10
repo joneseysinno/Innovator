@@ -17,7 +17,6 @@ impl PageTree {
                 let original = std::mem::replace(page, PageNode::empty(PageId(0)));
                 *self = PageTree::Split {
                     direction,
-                    ratio: 0.5,
                     first: Box::new(PageTree::Leaf(original)),
                     second: Box::new(PageTree::Leaf(PageNode::empty(new_id))),
                 };

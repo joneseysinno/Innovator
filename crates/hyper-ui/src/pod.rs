@@ -8,6 +8,9 @@ mod layout;
 mod list;
 mod pod;
 
+#[cfg(test)]
+mod layout_tests;
+
 pub use divider::{PodDivider, PodDividerRenderer};
 pub use id::PodId;
 pub use list::PodList;

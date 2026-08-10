@@ -1,0 +1,306 @@
+//! First-run workspace seeds — write-once authoring data, never stored on containers.
+
+use hyper_ui::container::{Extent, Visibility};
+
+/// One stub IO slot inside a pod (no ContainerState).
+#[derive(Debug, Clone, Copy)]
+pub struct IoSeed {
+    pub label: &'static str,
+}
+
+/// Pod placeholder — label, extent demand, and one or more stub IO.
+#[derive(Debug, Clone, Copy)]
+pub struct PodSeed {
+    pub label: &'static str,
+    pub icon: &'static str,
+    pub extent: Extent,
+    pub ios: &'static [IoSeed],
+}
+
+/// Page placeholder — label and ordered pods.
+#[derive(Debug, Clone, Copy)]
+pub struct PageSeed {
+    pub label: &'static str,
+    pub icon: &'static str,
+    pub extent: Extent,
+    pub pods: &'static [PodSeed],
+}
+
+/// Workspace placeholder — consumed once at first run.
+#[derive(Debug, Clone, Copy)]
+pub struct WorkspaceSeed {
+    /// Stable open-id for Home launcher / OpenWorkspace (not stored as "kind").
+    pub open_id: &'static str,
+    pub label: &'static str,
+    pub icon: &'static str,
+    pub intent: Visibility,
+    pub pages: &'static [PageSeed],
+}
+
+// ── Shared extents ──────────────────────────────────────────────────────────
+
+const PAGE_DOCS: Extent = Extent::new(280.0, 600.0, 1.0);
+const PAGE_VIEWER: Extent = Extent::new(320.0, 800.0, 1.0);
+const PAGE_OVERVIEW: Extent = Extent::new(400.0, 960.0, 1.0);
+const POD_DOC: Extent = Extent::new(120.0, 280.0, 1.0);
+const POD_VIEW: Extent = Extent::new(160.0, 420.0, 1.5);
+const POD_GEOMETRY: Extent = Extent::new(200.0, 420.0, 1.2);
+
+const STUB_ONE: &[IoSeed] = &[IoSeed { label: "Stub" }];
+const STUB_GEOMETRY: &[IoSeed] = &[
+    IoSeed { label: "Length" },
+    IoSeed { label: "Width" },
+    IoSeed { label: "Height" },
+];
+
+// ── Home ────────────────────────────────────────────────────────────────────
+
+const HOME_LAUNCHER_PODS: &[PodSeed] = &[PodSeed {
+    label: "Launcher",
+    icon: "H",
+    extent: POD_DOC,
+    ios: &[IoSeed { label: "Open workspace" }],
+}];
+const HOME_RECENTS_PODS: &[PodSeed] = &[PodSeed {
+    label: "Recents",
+    icon: "H",
+    extent: POD_DOC,
+    ios: &[IoSeed { label: "Recent projects" }],
+}];
+const HOME_PAGES: &[PageSeed] = &[
+    PageSeed {
+        label: "Launcher",
+        icon: "H",
+        extent: PAGE_OVERVIEW,
+        pods: HOME_LAUNCHER_PODS,
+    },
+    PageSeed {
+        label: "Recents",
+        icon: "H",
+        extent: PAGE_DOCS,
+        pods: HOME_RECENTS_PODS,
+    },
+];
+
+pub const HOME: WorkspaceSeed = WorkspaceSeed {
+    open_id: "home",
+    label: "Home",
+    icon: "H",
+    intent: Visibility::Shown,
+    pages: HOME_PAGES,
+};
+
+// ── Structural (real pages built separately; seed is metadata only) ─────────
+
+pub const STRUCTURAL: WorkspaceSeed = WorkspaceSeed {
+    open_id: "structural_analysis",
+    label: "Structural",
+    icon: "S",
+    intent: Visibility::Hidden,
+    pages: &[], // real Navigation · Analysis · Results from StructuralWorkspace::new
+};
+
+// ── Project Management ──────────────────────────────────────────────────────
+
+const PM_PODS: &[PodSeed] = &[PodSeed {
+    label: "Overview",
+    icon: "P",
+    extent: POD_VIEW,
+    ios: STUB_ONE,
+}];
+const PM_PAGES: &[PageSeed] = &[PageSeed {
+    label: "Overview",
+    icon: "P",
+    extent: PAGE_OVERVIEW,
+    pods: PM_PODS,
+}];
+
+pub const PROJECT_MANAGEMENT: WorkspaceSeed = WorkspaceSeed {
+    open_id: "project_management",
+    label: "Project Management",
+    icon: "P",
+    intent: Visibility::Hidden,
+    pages: PM_PAGES,
+};
+
+// ── Engineering (Geometry pod holds three stub IO) ──────────────────────────
+
+const ENG_DOCS_PODS: &[PodSeed] = &[PodSeed {
+    label: "Documents",
+    icon: "E",
+    extent: POD_DOC,
+    ios: STUB_ONE,
+}];
+const ENG_VIEW_PODS: &[PodSeed] = &[
+    PodSeed {
+        label: "Geometry",
+        icon: "E",
+        extent: POD_GEOMETRY,
+        ios: STUB_GEOMETRY,
+    },
+    PodSeed {
+        label: "Viewer",
+        icon: "E",
+        extent: POD_VIEW,
+        ios: STUB_ONE,
+    },
+];
+const ENG_PAGES: &[PageSeed] = &[
+    PageSeed {
+        label: "Documents",
+        icon: "E",
+        extent: PAGE_DOCS,
+        pods: ENG_DOCS_PODS,
+    },
+    PageSeed {
+        label: "Viewer",
+        icon: "E",
+        extent: PAGE_VIEWER,
+        pods: ENG_VIEW_PODS,
+    },
+];
+
+pub const ENGINEERING: WorkspaceSeed = WorkspaceSeed {
+    open_id: "engineering",
+    label: "Engineering",
+    icon: "E",
+    intent: Visibility::Hidden,
+    pages: ENG_PAGES,
+};
+
+// ── Drafting ────────────────────────────────────────────────────────────────
+
+const DRAFT_PAGES: &[PageSeed] = &[
+    PageSeed {
+        label: "Templates",
+        icon: "D",
+        extent: PAGE_DOCS,
+        pods: &[PodSeed {
+            label: "Templates",
+            icon: "D",
+            extent: POD_DOC,
+            ios: STUB_ONE,
+        }],
+    },
+    PageSeed {
+        label: "Viewer",
+        icon: "D",
+        extent: PAGE_VIEWER,
+        pods: &[PodSeed {
+            label: "Viewer",
+            icon: "D",
+            extent: POD_VIEW,
+            ios: STUB_ONE,
+        }],
+    },
+];
+
+pub const DRAFTING: WorkspaceSeed = WorkspaceSeed {
+    open_id: "drafting",
+    label: "Drafting",
+    icon: "D",
+    intent: Visibility::Hidden,
+    pages: DRAFT_PAGES,
+};
+
+// ── Crane & Construction ────────────────────────────────────────────────────
+
+const CRANE_PAGES: &[PageSeed] = &[
+    PageSeed {
+        label: "Documents",
+        icon: "C",
+        extent: PAGE_DOCS,
+        pods: &[PodSeed {
+            label: "Documents",
+            icon: "C",
+            extent: POD_DOC,
+            ios: STUB_ONE,
+        }],
+    },
+    PageSeed {
+        label: "Viewer",
+        icon: "C",
+        extent: PAGE_VIEWER,
+        pods: &[PodSeed {
+            label: "Viewer",
+            icon: "C",
+            extent: POD_VIEW,
+            ios: STUB_ONE,
+        }],
+    },
+];
+
+pub const CRANE: WorkspaceSeed = WorkspaceSeed {
+    open_id: "crane_construction",
+    label: "Crane & Construction",
+    icon: "C",
+    intent: Visibility::Hidden,
+    pages: CRANE_PAGES,
+};
+
+// ── HR ──────────────────────────────────────────────────────────────────────
+
+const HR_PAGES: &[PageSeed] = &[PageSeed {
+    label: "Documents",
+    icon: "R",
+    extent: PAGE_DOCS,
+    pods: &[PodSeed {
+        label: "Documents",
+        icon: "R",
+        extent: POD_DOC,
+        ios: STUB_ONE,
+    }],
+}];
+
+pub const HR: WorkspaceSeed = WorkspaceSeed {
+    open_id: "hr",
+    label: "HR",
+    icon: "R",
+    intent: Visibility::Hidden,
+    pages: HR_PAGES,
+};
+
+// ── Accounting ──────────────────────────────────────────────────────────────
+
+const ACCOUNTING_PAGES: &[PageSeed] = &[PageSeed {
+    label: "Documents",
+    icon: "A",
+    extent: PAGE_DOCS,
+    pods: &[PodSeed {
+        label: "Documents",
+        icon: "A",
+        extent: POD_DOC,
+        ios: STUB_ONE,
+    }],
+}];
+
+pub const ACCOUNTING: WorkspaceSeed = WorkspaceSeed {
+    open_id: "accounting",
+    label: "Accounting",
+    icon: "A",
+    intent: Visibility::Hidden,
+    pages: ACCOUNTING_PAGES,
+};
+
+/// All workspace seeds in tab / launcher order. Home first.
+pub const ALL: &[WorkspaceSeed] = &[
+    HOME,
+    STRUCTURAL,
+    PROJECT_MANAGEMENT,
+    ENGINEERING,
+    DRAFTING,
+    CRANE,
+    HR,
+    ACCOUNTING,
+];
+
+/// Non-Home seeds — Home launcher buttons.
+pub const LAUNCHABLE: &[WorkspaceSeed] = &[
+    STRUCTURAL,
+    PROJECT_MANAGEMENT,
+    ENGINEERING,
+    DRAFTING,
+    CRANE,
+    HR,
+    ACCOUNTING,
+];

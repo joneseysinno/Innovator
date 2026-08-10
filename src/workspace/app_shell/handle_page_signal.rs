@@ -1,21 +1,21 @@
 use super::rebuild_active::rebuild_active;
 use super::AppShell;
 use crate::domains::structural::templates::empty_page_ios;
-use crate::domains::structural::{PageSignal, StructuralWorkspace};
+use crate::domains::structural::PageSignal;
+use hyper_ui::particles::Particle;
+use hyper_ui::Pod;
 
 pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
-    let active_id = shell.active_id;
-    let Some(idx) = shell.workspaces.iter().position(|w| w.id() == active_id) else {
+    let Some(idx) = shell.workspaces.iter().position(|w| w.is_active()) else {
         return;
     };
-    let Some(ws) = shell.workspaces[idx]
-        .as_any_mut()
-        .downcast_mut::<StructuralWorkspace>()
-    else {
+    let Some(ws) = shell.workspaces[idx].structural_mut() else {
         return;
     };
 
+    let pages_area = shell.pages_area;
     let mut rebuild = false;
+    let mut scroll_to: Option<(hyper_ui::PageId, hyper_ui::PodId)> = None;
 
     match signal {
         PageSignal::Split {
@@ -49,12 +49,14 @@ pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
             }
         }
         PageSignal::ResetRatio { seam_id } => {
-            ws.page_tree.reset_ratio(seam_id);
+            ws.reset_page_seam(seam_id.0 as usize, pages_area);
             rebuild = true;
         }
         PageSignal::ScrollToPod { page_id, pod_id } => {
-            // Pod rects are absolute today — refresh layouts. Future: scroll offset.
-            let _ = (page_id, pod_id);
+            if let Some(page) = ws.page_tree.find_mut(page_id) {
+                page.pods.expand(pod_id);
+            }
+            scroll_to = Some((page_id, pod_id));
             rebuild = true;
         }
     }
@@ -63,11 +65,29 @@ pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
     shell.context_menu_triggers.clear();
 
     if rebuild {
+        shell.persist_layout();
         let mut renderer = match shell.renderer.take() {
             Some(r) => r,
             None => return,
         };
         rebuild_active(shell, &mut renderer);
+
+        if let Some((page_id, pod_id)) = scroll_to {
+            if let Some(ws) = shell.workspaces[idx].structural_mut() {
+                if let Some(vp_id) = ws.page_viewport_ids.get(&page_id).copied() {
+                    let container = Pod::container_id(pod_id);
+                    if renderer.ui.tree.scroll_to_container(vp_id, container) {
+                        if let Some(Particle::Viewport(vp)) = renderer.ui.tree.find(vp_id) {
+                            let offset = vp.offset;
+                            if let Some(page) = ws.page_tree.find_mut(page_id) {
+                                page.pods.scroll_offset = offset;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         shell.renderer = Some(renderer);
     }
 }

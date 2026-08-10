@@ -8,6 +8,6 @@ pub fn handle_app_signal(shell: &mut AppShell, signal: AppSignal) {
     match signal {
         AppSignal::SelectWorkspace(id) => select_workspace(shell, id),
         AppSignal::AddWorkspace => add_workspace(shell),
-        AppSignal::OpenWorkspace(kind_id) => open_workspace(shell, kind_id),
+        AppSignal::OpenWorkspace(open_id) => open_workspace(shell, open_id),
     }
 }

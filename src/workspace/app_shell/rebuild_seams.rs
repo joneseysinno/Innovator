@@ -1,24 +1,19 @@
-use crate::domains::structural::StructuralWorkspace;
-use hyper_ui::{HyperRenderer, Rect};
+use hyper_ui::{HyperRenderer, PageTree, Rect};
 
 /// Rebuild page seams; pod dividers are rebuilt from each page's PodList layout.
-pub fn rebuild_seams(
-    ws: &StructuralWorkspace,
-    pages_area: Rect,
-    renderer: &mut HyperRenderer,
-) {
+pub fn rebuild_seams(page_tree: &PageTree, pages_area: Rect, renderer: &mut HyperRenderer) {
     renderer
         .ui
         .page_seams
-        .rebuild_from_page_tree(&ws.page_tree, pages_area);
+        .rebuild_from_page_tree(page_tree, pages_area);
 
     renderer.ui.pod_dividers.clear();
-    for (page_id, page_rect) in ws.page_tree.leaf_rects(pages_area) {
-        let Some(page) = ws.page_tree.find(page_id) else {
+    for (page_id, page_rect) in page_tree.leaf_rects(pages_area) {
+        let Some(page) = page_tree.find(page_id) else {
             continue;
         };
         let content_rect = page.content_rect(page_rect);
-        let layout = page.pods.layout(content_rect);
+        let layout = page.pods.layout_rects(content_rect);
         renderer
             .ui
             .pod_dividers

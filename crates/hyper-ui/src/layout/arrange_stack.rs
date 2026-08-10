@@ -58,7 +58,7 @@ pub(super) fn arrange_stack(stack: &mut StackParticle, rect: Rect) {
             let count = stack.children.len();
             for (i, child) in stack.children.iter_mut().enumerate() {
                 let remaining = (rect.size.y - (y - rect.origin.y)).max(0.0);
-                let is_view = matches!(child, Particle::View(_));
+                let is_view = matches!(child, Particle::View(_) | Particle::Viewport(_));
                 let avail_h = if is_view {
                     // give remaining space to views
                     let after = count - i - 1;

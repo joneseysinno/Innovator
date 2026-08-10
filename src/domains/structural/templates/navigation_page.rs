@@ -11,14 +11,14 @@ pub fn navigation_page(id: PageId) -> PageTemplate {
         Pod::new(PodId(1), "Summary").with_height(0.65),
     );
     let ios = vec![(PodId(0), IoKind::WallList), (PodId(1), IoKind::WallSummary)];
-    let node = PageNode {
-        id,
-        pods,
-        header: None,
-        icon_rail: Some(IconRailConfig {
+    let node = PageNode::new(id, pods)
+        .with_label("Navigation", "N")
+        .with_extent(super::nav_extent())
+        .with_icon_rail(Some(
+        IconRailConfig {
             side: IconRailSide::Left,
             width: 34.0,
-        }),
-    };
+        },
+    ));
     (node, ios)
 }

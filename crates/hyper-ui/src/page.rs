@@ -5,15 +5,17 @@ mod find;
 mod header;
 mod icon_rail;
 mod id;
-mod leaf_rects;
+mod layout;
 mod leaves_mut;
 mod merge;
 mod node;
 mod seam_id;
-mod set_ratio;
 mod side;
 mod split;
 mod tree;
+
+#[cfg(test)]
+mod layout_tests;
 
 pub use header::{PageHeaderConfig, PageHeaderSlots};
 pub use icon_rail::{IconRailConfig, IconRailSide};
