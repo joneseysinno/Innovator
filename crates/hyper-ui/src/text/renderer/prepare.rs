@@ -35,6 +35,7 @@ impl TextRenderer {
                 buffer,
                 left: item.left,
                 top: item.top,
+                // Resolution + positions are logical; DPI must not multiply glyph size.
                 scale: 1.0,
                 bounds: item.bounds,
                 default_color: item.color,

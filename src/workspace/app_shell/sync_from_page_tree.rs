@@ -242,11 +242,24 @@ fn find_pages_row(
     let Some(Particle::Stack(column)) = surface.child.as_deref_mut() else {
         return None;
     };
-    let pages_host = column.children.iter_mut().rev().find_map(|c| match c {
-        Particle::View(v) => Some(v),
-        _ => None,
-    })?;
-    let Particle::Stack(outer) = pages_host.child.as_deref_mut()? else {
+
+    // Root column: [tabs, workspace_host, …]. Pages live inside the workspace host.
+    let workspace = column.children.get_mut(1)?;
+    let Particle::View(ws_host) = workspace else {
+        return None;
+    };
+    let pages_view = match ws_host.child.as_deref_mut()? {
+        // [header, pages View]
+        Particle::Stack(ws_col) => ws_col.children.iter_mut().find_map(|c| match c {
+            Particle::View(v) => Some(v),
+            _ => None,
+        })?,
+        // No header: workspace child is the pages View itself.
+        Particle::View(v) => v,
+        _ => return None,
+    };
+
+    let Particle::Stack(outer) = pages_view.child.as_deref_mut()? else {
         return None;
     };
 

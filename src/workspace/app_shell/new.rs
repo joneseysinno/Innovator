@@ -59,7 +59,7 @@ impl AppShell {
             tab_strip,
             signal_rx,
             window_area: Rect::from_xywh(0.0, 0.0, 1280.0, 800.0),
-            pages_area: Rect::from_xywh(0.0, 28.0, 1280.0, 772.0),
+            pages_area: Rect::from_xywh(0.0, 32.0, 1280.0, 768.0),
             has_header: false,
             pending_context_menu: None,
             context_menu_triggers: HashMap::new(),

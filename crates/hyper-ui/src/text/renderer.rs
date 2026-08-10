@@ -23,7 +23,10 @@ pub struct TextRenderer {
     renderer: glyphon::TextRenderer,
     /// Content-keyed cache — reused across frames when text is unchanged.
     cache: HashMap<TextKey, glyphon::Buffer>,
+    /// Logical viewport size (matches UI layout coordinates).
     width: u32,
     height: u32,
+    /// Window scale — sharpens glyphs while positions stay logical.
+    scale_factor: f32,
     pending: Vec<PendingText>,
 }

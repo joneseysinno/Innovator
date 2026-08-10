@@ -1,4 +1,3 @@
-use crate::geom::Vec2;
 use crate::layout::InputClass;
 use crate::particles::{Particle, ParticleTree, PointerKind, TriggerState};
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, TouchPhase, WindowEvent};
@@ -12,7 +11,7 @@ impl InputRouter {
         let mut out = Vec::new();
         match event {
             WindowEvent::CursorMoved { position, .. } => {
-                self.cursor = Vec2::new(position.x as f32, position.y as f32);
+                self.cursor = self.to_logical(position.x, position.y);
                 if let Some((vp_id, last)) = self.scroll_drag {
                     let axis_pos = self.cursor.y;
                     let delta = last - axis_pos;
@@ -159,7 +158,7 @@ impl InputRouter {
                 }
             }
             WindowEvent::Touch(touch) => {
-                let pos = Vec2::new(touch.location.x as f32, touch.location.y as f32);
+                let pos = self.to_logical(touch.location.x, touch.location.y);
                 self.cursor = pos;
                 // First touch promotes Pointer → Hybrid (never demotes).
                 if self.input_class == InputClass::Pointer {

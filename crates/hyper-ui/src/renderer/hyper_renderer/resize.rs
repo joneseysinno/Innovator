@@ -4,7 +4,8 @@ use winit::dpi::PhysicalSize;
 use super::HyperRenderer;
 
 impl HyperRenderer {
-    pub fn resize(&mut self, size: PhysicalSize<u32>) {
+    /// Resize the physical wgpu surface and align UI helpers to logical space.
+    pub fn resize(&mut self, size: PhysicalSize<u32>, scale_factor: f32) {
         if size.width == 0 || size.height == 0 {
             return;
         }
@@ -14,6 +15,11 @@ impl HyperRenderer {
         self.scene
             .camera
             .set_screen_size(UVec2::new(size.width, size.height));
-        self.text.resize(size.width, size.height);
+
+        let s = scale_factor.max(0.01);
+        let logical_w = ((size.width as f32) / s).ceil().max(1.0) as u32;
+        let logical_h = ((size.height as f32) / s).ceil().max(1.0) as u32;
+        self.text.resize(logical_w, logical_h, s);
+        self.ui.input.set_scale_factor(s);
     }
 }

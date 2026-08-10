@@ -21,11 +21,12 @@ pub(crate) fn resumed(shell: &mut AppShell, event_loop: &ActiveEventLoop) {
     let scale = window.scale_factor() as f32;
     let physical = window.inner_size();
     shell.set_physical_size(physical.width, physical.height, scale);
+    renderer.resize(physical, scale);
 
     shell.has_header = shell.active().and_then(|a| a.header()).is_some();
     let layout = shell.layout_area();
-    let (_tabs, _header, pages) = layout_areas(layout, shell.has_header);
-    shell.pages_area = pages;
+    let areas = layout_areas(layout, shell.has_header);
+    shell.pages_area = areas.pages;
 
     rebuild_active(shell, &mut renderer);
 

@@ -178,9 +178,11 @@ impl ApplicationHandler for DemoApp {
         match &event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
-                renderer.resize(*size);
-                self.pod_area =
-                    Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
+                let scale = window.scale_factor() as f32;
+                renderer.resize(*size, scale);
+                let lw = size.width as f32 / scale.max(0.01);
+                let lh = size.height as f32 / scale.max(0.01);
+                self.pod_area = Rect::from_xywh(0.0, 0.0, lw, lh);
                 Self::rebuild_dividers(&mut self.pods, self.pod_area, renderer);
                 if let Some((_, top)) = self.pods.layout_rects(self.pod_area).first().copied() {
                     renderer.ui.layout(top);
@@ -215,8 +217,8 @@ impl ApplicationHandler for DemoApp {
 
                 let focused = renderer.ui.input.focused;
                 let screen = [
-                    renderer.config.width as f32,
-                    renderer.config.height as f32,
+                    self.pod_area.size.x.max(1.0),
+                    self.pod_area.size.y.max(1.0),
                 ];
                 if let Some((_, top)) = leaves.first().copied() {
                     renderer.ui.layout(top);

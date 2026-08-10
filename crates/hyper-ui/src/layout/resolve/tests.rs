@@ -116,13 +116,14 @@ fn table_driven_three_pages_focus_nav() {
         Expectation {
             width: 640.0,
             survivors: &[0],
-            sizes: &[360.0, 0.0, 0.0],
+            // Weight-0 sole survivor still fills the axis (7c stretch).
+            sizes: &[640.0, 0.0, 0.0],
             underflowed: false,
         },
         Expectation {
             width: 390.0,
             survivors: &[0],
-            sizes: &[360.0, 0.0, 0.0],
+            sizes: &[390.0, 0.0, 0.0],
             underflowed: false,
         },
         Expectation {
@@ -152,15 +153,8 @@ fn table_driven_three_pages_focus_nav() {
             approx(pages[i].rect().size.x, expected);
         }
         let sum: f32 = pages.iter().map(|p| p.rect().size.x).sum();
-        if case.underflowed {
-            approx(sum, case.width);
-        } else {
-            assert!(
-                sum <= case.width + 0.05,
-                "sum {sum} exceeds width {} ",
-                case.width
-            );
-        }
+        // Shown pages always consume the full axis (Cascade fill).
+        approx(sum, case.width);
     }
 }
 

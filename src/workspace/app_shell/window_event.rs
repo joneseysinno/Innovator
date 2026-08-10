@@ -44,7 +44,7 @@ pub(crate) fn window_event(
                 Some(r) => r,
                 None => return,
             };
-            renderer.resize(*size);
+            renderer.resize(*size, scale);
             rebuild_active(shell, &mut renderer);
 
             // Render immediately — Windows modal resize loop may delay RedrawRequested.
@@ -53,13 +53,11 @@ pub(crate) fn window_event(
             window.request_redraw();
         }
         WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-            // Logical size unchanged; only the surface must track physical pixels.
-            shell.scale_factor = *scale_factor as f32;
+            let scale = *scale_factor as f32;
             let physical = window.inner_size();
-            shell.physical_width = physical.width;
-            shell.physical_height = physical.height;
+            shell.set_physical_size(physical.width, physical.height, scale);
             if let Some(renderer) = shell.renderer.as_mut() {
-                renderer.resize(physical);
+                renderer.resize(physical, scale);
             }
             window.request_redraw();
         }
@@ -596,10 +594,8 @@ fn render_frame(shell: &mut AppShell, renderer: &mut hyper_ui::HyperRenderer) {
         .cull_and_upload(&renderer.device, &renderer.queue, &spatial);
 
     let focused = renderer.ui.input.focused;
-    let screen = [
-        renderer.config.width as f32,
-        renderer.config.height as f32,
-    ];
+    // UI layouts are logical; screen_size must match or HiDPI leaves empty right/bottom.
+    let screen = [layout_area.size.x.max(1.0), layout_area.size.y.max(1.0)];
     renderer.ui.rebuild_draw_lists(
         &renderer.device,
         &renderer.queue,

@@ -10,8 +10,8 @@ use hyper_ui::HyperRenderer;
 pub fn rebuild_active(shell: &mut AppShell, renderer: &mut HyperRenderer) {
     shell.has_header = shell.active().and_then(|a| a.header()).is_some();
     let layout = shell.layout_area();
-    let (_tabs, _header, pages) = layout_areas(layout, shell.has_header);
-    shell.pages_area = pages;
+    let areas = layout_areas(layout, shell.has_header);
+    shell.pages_area = areas.pages;
     let pages_area = shell.pages_area;
 
     let viewport = shell.resolve_viewport();

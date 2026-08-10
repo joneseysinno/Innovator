@@ -60,6 +60,37 @@ pub(super) fn surplus(
                 let w = child.extent.weight.max(0.0);
                 sizes[i] += surplus * (w / total_weight);
             }
+            surplus = 0.0;
+        }
+    }
+
+    // 7c: if weight cannot absorb leftover (all Shown weight 0), stretch by
+    // current size so the arrangement still fills the axis.
+    if surplus > f32::EPSILON {
+        let total_size: f32 = children
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.resolved() == Visibility::Shown)
+            .map(|(i, _)| sizes[i].max(0.0))
+            .sum();
+        let shown: Vec<usize> = children
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.resolved() == Visibility::Shown)
+            .map(|(i, _)| i)
+            .collect();
+        if shown.is_empty() {
+            return;
+        }
+        if total_size > f32::EPSILON {
+            for i in shown {
+                sizes[i] += surplus * (sizes[i] / total_size);
+            }
+        } else {
+            let each = surplus / shown.len() as f32;
+            for i in shown {
+                sizes[i] += each;
+            }
         }
     }
 }

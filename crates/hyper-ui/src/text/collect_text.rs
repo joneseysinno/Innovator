@@ -85,19 +85,31 @@ fn collect_text_clipped(
             text.queue_text(p.display_text(), origin, 14.0, 400, color, bounds);
         }
         Particle::Trigger(p) => {
-            let char_w = 14.0 * 0.55;
+            const FONT: f32 = 14.0;
+            let line_h = FONT * 1.35;
+            let char_w = FONT * 0.55;
             let text_w = p.label.chars().count() as f32 * char_w;
             let origin = Vec2::new(
                 p.layout.origin.x + (p.layout.size.x - text_w) * 0.5,
-                p.layout.origin.y + 10.0,
+                p.layout.origin.y + (p.layout.size.y - line_h) * 0.5,
             );
+            let trigger_clip = (
+                p.layout.origin.x as i32,
+                p.layout.origin.y as i32,
+                (p.layout.origin.x + p.layout.size.x) as i32,
+                (p.layout.origin.y + p.layout.size.y) as i32,
+            );
+            let bounds = match clip_to_bounds(clip) {
+                Some(c) => Some(intersect_bounds(c, trigger_clip)),
+                None => Some(trigger_clip),
+            };
             text.queue_text(
                 &p.label,
                 origin,
-                14.0,
+                FONT,
                 500,
                 [0.95, 0.96, 0.98, 1.0],
-                clip_to_bounds(clip),
+                bounds,
             );
         }
         Particle::Signal(_) => {}

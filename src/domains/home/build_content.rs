@@ -2,7 +2,7 @@ use super::workspace::HomeWorkspace;
 use crate::workspace::app_signal::AppSignal;
 use crate::workspace::seed;
 use hyper_ui::particles::{
-    Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle,
+    Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle,
 };
 use std::collections::HashMap;
 
@@ -42,11 +42,18 @@ pub fn build_content(ws: &mut HomeWorkspace) -> Particle {
 
     ws.actions = actions;
 
-    Particle::Surface(
+    // Wrap in a View so the root column stretches the dashboard to fill the full
+    // workspace area (matching Structural / Placeholder). A bare Surface only
+    // measures to its content height, leaving empty space below.
+    let surface = Particle::Surface(
         SurfaceParticle::new([0.12, 0.13, 0.16, 1.0])
             .with_padding(24.0)
             .with_radius(0.0)
             .with_border([0.26, 0.28, 0.32, 1.0], 1.0)
             .with_child(Particle::Stack(body)),
-    )
+    );
+
+    let mut view = ViewParticle::new("home");
+    view.child = Some(Box::new(surface));
+    Particle::View(view)
 }
