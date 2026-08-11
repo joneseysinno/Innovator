@@ -12,6 +12,7 @@ mod node;
 mod seam_id;
 mod side;
 mod split;
+mod sync_particles;
 mod tree;
 
 #[cfg(test)]
@@ -23,4 +24,5 @@ pub use id::PageId;
 pub use node::PageNode;
 pub use seam_id::PageSeamId;
 pub use side::PageSide;
+pub use sync_particles::sync_from_page_tree;
 pub use tree::PageTree;

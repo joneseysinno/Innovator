@@ -2,9 +2,8 @@ use super::build_tree::build_tree;
 use super::layout_areas::layout_areas;
 use super::rebuild_seams::{clear_seams, rebuild_seams};
 use super::sync_chrome_layouts::sync_chrome_layouts;
-use super::sync_from_page_tree::sync_from_page_tree;
 use super::AppShell;
-use hyper_ui::HyperRenderer;
+use hyper_ui::{sync_from_page_tree, HyperRenderer};
 
 /// Rebuild UI tree and seams for the currently active workspace.
 pub fn rebuild_active(shell: &mut AppShell, renderer: &mut HyperRenderer) {

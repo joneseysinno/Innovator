@@ -8,7 +8,6 @@ use super::page_context_menu::PageContextMenu;
 use super::rebuild_active::rebuild_active;
 use super::rebuild_seams::rebuild_seams;
 use super::sync_chrome_layouts::sync_chrome_layouts;
-use super::sync_from_page_tree::sync_from_page_tree;
 use super::update_focus::update_focus_from_pointer;
 use super::AppShell;
 use crate::domains::structural::IoKind;
@@ -16,8 +15,8 @@ use crate::pages::analysis::input_form::FormDensity;
 use crate::workspace::signal::WorkspaceSignal;
 use hyper_ui::layout::{arrange_particle, LayoutBox};
 use hyper_ui::{
-    apply_signal_text, PageSide, PointerKind, Rect, SeamDirection, SeamRatioAction, UVec2, UiEvent,
-    Vec2,
+    apply_signal_text, sync_from_page_tree, PageSide, PointerKind, Rect, SeamDirection,
+    SeamRatioAction, UVec2, UiEvent, Vec2,
 };
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;

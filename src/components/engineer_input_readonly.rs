@@ -1,5 +1,6 @@
-use crate::particles::field::FieldValue;
-use crate::particles::{Particle, SourceParticle, StackParticle, SurfaceParticle};
+use hyper_ui::particles::{
+    FieldValue, Particle, SourceParticle, StackParticle, SurfaceParticle,
+};
 
 /// Convenience: build a read-only engineer row (field renders as source).
 pub fn engineer_input_readonly(label: &str, value: f64, unit: &str) -> Particle {

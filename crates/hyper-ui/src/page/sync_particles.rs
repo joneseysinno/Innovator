@@ -1,6 +1,8 @@
-use hyper_ui::layout::{arrange_particle, LayoutBox};
-use hyper_ui::particles::Particle;
-use hyper_ui::{IconRailSide, PageId, PageTree, Pod, Rect};
+use crate::geom::{Rect, Vec2};
+use crate::layout::{arrange_particle, LayoutBox};
+use crate::page::{IconRailSide, PageId, PageTree};
+use crate::particles::{Particle, StackParticle};
+use crate::pod::{Pod, COLLAPSED_HEIGHT};
 
 /// Walk the PageTree and assign absolute layouts to page / header / rail / pod particles.
 ///
@@ -199,7 +201,7 @@ fn sync_pod_children(
             _ => None,
         };
         if let Some(pod_col) = pod_col {
-            let title_h = hyper_ui::COLLAPSED_HEIGHT.min(rect.size.y);
+            let title_h = COLLAPSED_HEIGHT.min(rect.size.y);
             if let Some(title) = pod_col.children.get_mut(0) {
                 let title_rect =
                     Rect::from_xywh(local.origin.x, local.origin.y, rect.size.x, title_h);
@@ -235,7 +237,7 @@ fn sync_pod_children(
 fn find_pages_row(
     root: &mut Particle,
     pages_area: Rect,
-) -> Option<(*mut hyper_ui::particles::StackParticle, Rect)> {
+) -> Option<(*mut StackParticle, Rect)> {
     let Particle::Surface(surface) = root else {
         return None;
     };
@@ -269,7 +271,7 @@ fn find_pages_row(
             let rail_w = 34.0;
             rail.layout = LayoutBox {
                 origin: pages_area.origin,
-                size: hyper_ui::Vec2::new(rail_w, pages_area.size.y),
+                size: Vec2::new(rail_w, pages_area.size.y),
             };
         }
         let content = Rect::from_xywh(

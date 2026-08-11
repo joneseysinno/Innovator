@@ -7,7 +7,6 @@
 //! Container hierarchy: [`workspace`] → [`page`] → [`pod`].
 
 pub mod container;
-pub mod engineer;
 pub mod geom;
 pub mod input;
 pub mod layout;
@@ -21,8 +20,7 @@ pub mod ui;
 pub mod workspace;
 
 pub use container::{ContainerId, ContainerState, Extent, FocusPath, Visibility};
-pub use engineer::{engineer_input, engineer_input_readonly, EngineerInput};
-pub use geom::{Rect, UVec2, Vec2, WorldRect};
+pub use geom::{letterbox_rect, Rect, UVec2, Vec2, WorldRect};
 pub use input::{InputRouter, UiEvent};
 pub use layout::{
     resolve, Axis, DemotionLadder, InputClass, LayoutBox, LayoutEngine, Overflow, Overrides,
@@ -30,8 +28,8 @@ pub use layout::{
     UNDERFLOW_FACTOR, WORKSPACE_LADDER,
 };
 pub use page::{
-    IconRailConfig, IconRailSide, PageHeaderConfig, PageHeaderSlots, PageId, PageNode, PageSeamId,
-    PageSide, PageTree,
+    sync_from_page_tree, IconRailConfig, IconRailSide, PageHeaderConfig, PageHeaderSlots, PageId,
+    PageNode, PageSeamId, PageSide, PageTree,
 };
 pub use particles::{
     DirtyFlags, FieldParticle, FieldValue, Particle, ParticleId, ParticleTree, PointerKind,

@@ -1,6 +1,6 @@
 //! F9 simulated viewport presets, letterboxed inside the real window.
 
-use hyper_ui::{InputClass, Rect, Vec2};
+use hyper_ui::{letterbox_rect, InputClass, Rect, Vec2};
 
 /// Cycles with F9. `Native` uses the real window; others force size + input class.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -61,19 +61,6 @@ impl PreviewPreset {
             Self::Laptop => InputClass::Pointer,
         }
     }
-}
-
-/// Center `inner` inside `outer`, letterboxed. If `inner` is larger than `outer`
-/// on an axis, scale uniformly to fit.
-pub fn letterbox_rect(outer: Rect, inner: Vec2) -> Rect {
-    let ox = outer.size.x.max(1.0);
-    let oy = outer.size.y.max(1.0);
-    let scale = (ox / inner.x.max(1.0)).min(oy / inner.y.max(1.0)).min(1.0);
-    let w = inner.x * scale;
-    let h = inner.y * scale;
-    let x = outer.origin.x + (ox - w) * 0.5;
-    let y = outer.origin.y + (oy - h) * 0.5;
-    Rect::from_xywh(x, y, w, h)
 }
 
 /// Map a window-space cursor into preview layout space (origin at letterbox,

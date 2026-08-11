@@ -5,11 +5,11 @@
 //! ```
 
 use hyper_ui::particles::{
-    Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle,
+    FieldParticle, Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle,
 };
 use hyper_ui::{
-    apply_signal_text, engineer_input, EdgeKindGpu, HyperRenderer, InMemoryWorldSpatial, Pod,
-    PodId, PodList, Rect, SceneNode, UiEvent, Vec2, WorldEdge,
+    apply_signal_text, EdgeKindGpu, HyperRenderer, InMemoryWorldSpatial, Pod, PodId, PodList, Rect,
+    SceneNode, UiEvent, Vec2, WorldEdge,
 };
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -18,21 +18,40 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
 
+/// Demo-local label + numeric field + unit row (composites live in host apps).
+fn demo_numeric_row(label: &str, value: f64, unit: &str) -> (Particle, hyper_ui::ParticleId) {
+    let mut field = FieldParticle::f64(value);
+    field.flex = 1.0;
+    let field_id = field.id;
+    let row = StackParticle::row(vec![
+        Particle::Source(SourceParticle::secondary(label)),
+        Particle::Field(field),
+        Particle::Source(SourceParticle::muted(unit)),
+    ])
+    .with_gap(10.0);
+    let particle = Particle::Surface(
+        SurfaceParticle::new([0.0, 0.0, 0.0, 0.0])
+            .with_padding(0.0)
+            .with_radius(0.0)
+            .with_child(Particle::Stack(row)),
+    );
+    (particle, field_id)
+}
+
 fn build_ui_tree() -> (Particle, hyper_ui::ParticleId, hyper_ui::ParticleId) {
     let title = SourceParticle::new("hyper-ui demo").with_weight(500);
     let status = SourceParticle::secondary("signal: waiting…");
     let status_id = status.id;
 
-    let height = engineer_input("Height", 12.0, "ft");
-    let field_id = height.field_id;
-    let thickness = engineer_input("Thickness", 8.0, "in");
+    let (height, field_id) = demo_numeric_row("Height", 12.0, "ft");
+    let (thickness, _) = demo_numeric_row("Thickness", 8.0, "in");
     let run = TriggerParticle::primary("Run Analysis");
 
     let form = StackParticle::column(vec![
         Particle::Source(title),
         Particle::Source(status),
-        height.into_particle(),
-        thickness.into_particle(),
+        height,
+        thickness,
         Particle::Trigger(run),
     ])
     .with_gap(12.0);

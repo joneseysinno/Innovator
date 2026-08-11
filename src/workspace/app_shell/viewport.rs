@@ -1,8 +1,7 @@
 //! Layout viewport helpers — logical size, preview letterbox, hysteresis.
 
 use super::AppShell;
-use crate::devtools::preview::letterbox_rect;
-use hyper_ui::{InputClass, Rect, SizeClass, Vec2, Viewport};
+use hyper_ui::{letterbox_rect, InputClass, Rect, SizeClass, Vec2, Viewport};
 
 impl AppShell {
     /// Full-window logical rect, or letterboxed preset when F9 preview is active.

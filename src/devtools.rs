@@ -4,4 +4,4 @@ pub mod overlay;
 pub mod preview;
 
 pub use overlay::build_overlay;
-pub use preview::{letterbox_rect, PreviewPreset};
+pub use preview::PreviewPreset;

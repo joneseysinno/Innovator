@@ -19,7 +19,6 @@ pub mod rebuild_seams;
 pub mod resumed;
 pub mod select_workspace;
 pub mod sync_chrome_layouts;
-pub mod sync_from_page_tree;
 pub mod update_focus;
 pub mod viewport;
 pub mod window_event;
