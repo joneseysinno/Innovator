@@ -175,13 +175,21 @@ fn sync_pod_children(
         .collect();
     let collapsed: Vec<bool> = page.pods.pods.iter().map(|p| p.collapsed).collect();
 
-    // Configure scroll viewport if present.
-    let stack = if let Particle::Viewport(vp) = content {
+    // Configure scroll viewport if present. Scroll is applied in the pod loop —
+    // never via arrange_particle on the viewport (that measure-reflows children
+    // and discards PodList rects / bordered shell chrome).
+    let scroll = if let Particle::Viewport(vp) = content {
         vp.offset = scroll_offset;
         vp.content_extent = content_rect.size.y + report.scroll_extent;
         vp.set_anchors(anchors);
         vp.clamp_offset();
         page.pods.scroll_offset = vp.offset;
+        vp.offset
+    } else {
+        0.0
+    };
+
+    let stack = if let Particle::Viewport(vp) = content {
         match vp.child.as_deref_mut() {
             Some(Particle::Stack(s)) => s,
             _ => {
@@ -202,14 +210,14 @@ fn sync_pod_children(
         return;
     };
 
-    // Lay out pods in content space (origin at content_rect; viewport offsets later).
+    // Lay out pods from PodList rects, shifted by viewport scroll.
     for (i, ((_pod_id, rect), is_collapsed)) in leaves.iter().zip(collapsed.iter()).enumerate() {
         let Some(child) = stack.children.get_mut(i) else {
             continue;
         };
         let local = Rect::from_xywh(
             content_rect.origin.x,
-            content_rect.origin.y + (rect.origin.y - content_rect.origin.y),
+            content_rect.origin.y + (rect.origin.y - content_rect.origin.y) - scroll,
             rect.size.x,
             rect.size.y,
         );
@@ -219,7 +227,7 @@ fn sync_pod_children(
         });
         arrange_particle(child, local);
 
-        // Structural: bare Stack(title, body). Placeholder: Surface → Stack(title, body).
+        // Uniform shell: Surface → Stack(title, [body]). Bare Stack kept for legacy trees.
         let pod_col = match child {
             Particle::Stack(s) => Some(s),
             Particle::Surface(surf) => match surf.child.as_deref_mut() {
@@ -256,9 +264,28 @@ fn sync_pod_children(
         }
     }
 
-    // Final viewport arrange applies scroll offset to the child stack.
-    if matches!(content, Particle::Viewport(_)) {
-        arrange_particle(content, content_rect);
+    // Pin viewport/stack layout boxes without measure-reflowing pod children.
+    let pin = if let Particle::Viewport(vp) = content {
+        Some((
+            vp.content_extent.max(content_rect.size.y),
+            vp.offset,
+        ))
+    } else {
+        None
+    };
+    if let Some((extent_h, off)) = pin {
+        content.set_layout(LayoutBox {
+            origin: content_rect.origin,
+            size: content_rect.size,
+        });
+        if let Particle::Viewport(vp) = content {
+            if let Some(child) = vp.child.as_mut() {
+                child.set_layout(LayoutBox {
+                    origin: Vec2::new(content_rect.origin.x, content_rect.origin.y - off),
+                    size: Vec2::new(content_rect.size.x, extent_h),
+                });
+            }
+        }
     }
 }
 

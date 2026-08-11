@@ -384,24 +384,20 @@ pub(crate) fn window_event(
 
             if !pod_divider_events.is_empty() {
                 let mut changed = false;
-                if let Some(ws) = shell
-                    .active_mut()
-                    .and_then(|a| a.structural_mut())
-                {
+                if let Some(tree) = shell.active_mut().and_then(|a| a.page_tree_mut()) {
                     for ev in &pod_divider_events {
                         match ev {
                             UiEvent::PodCollapse { id } => {
-                                if toggle_pod_collapse(&mut ws.page_tree, pages_area, *id) {
+                                if toggle_pod_collapse(tree, pages_area, *id) {
                                     changed = true;
                                 }
                             }
                             UiEvent::PodDividerDrag { above, delta } => {
-                                let owner = ws
-                                    .page_tree
+                                let owner = tree
                                     .leaf_rects(pages_area)
                                     .into_iter()
                                     .find_map(|(page_id, page_rect)| {
-                                        let page = ws.page_tree.find(page_id)?;
+                                        let page = tree.find(page_id)?;
                                         if page.pods.pods.iter().any(|p| p.id == *above) {
                                             let content = page.content_rect(page_rect);
                                             Some((page_id, content.size.y, content.size.x))
@@ -410,7 +406,7 @@ pub(crate) fn window_event(
                                         }
                                     });
                                 if let Some((page_id, area_h, area_w)) = owner {
-                                    if let Some(page) = ws.page_tree.find_mut(page_id) {
+                                    if let Some(page) = tree.find_mut(page_id) {
                                         let class = hyper_ui::SizeClass::from_width(area_w);
                                         page.pods.apply_divider_drag(
                                             *above, *delta, area_h, class,
@@ -420,12 +416,11 @@ pub(crate) fn window_event(
                                 }
                             }
                             UiEvent::PodDividerEqualize { above } => {
-                                let owner = ws
-                                    .page_tree
+                                let owner = tree
                                     .leaf_rects(pages_area)
                                     .into_iter()
                                     .find_map(|(page_id, page_rect)| {
-                                        let page = ws.page_tree.find(page_id)?;
+                                        let page = tree.find(page_id)?;
                                         if page.pods.pods.iter().any(|p| p.id == *above) {
                                             Some((page_id, page.content_rect(page_rect).size.x))
                                         } else {
@@ -433,7 +428,7 @@ pub(crate) fn window_event(
                                         }
                                     });
                                 if let Some((page_id, area_w)) = owner {
-                                    if let Some(page) = ws.page_tree.find_mut(page_id) {
+                                    if let Some(page) = tree.find_mut(page_id) {
                                         page.pods
                                             .equalize(hyper_ui::SizeClass::from_width(area_w));
                                         changed = true;
@@ -441,14 +436,6 @@ pub(crate) fn window_event(
                                 }
                             }
                             _ => {}
-                        }
-                    }
-                } else if let Some(ws) = shell.active_mut().and_then(|a| a.placeholder_mut()) {
-                    for ev in &pod_divider_events {
-                        if let UiEvent::PodCollapse { id } = ev {
-                            if toggle_pod_collapse(&mut ws.page_tree, pages_area, *id) {
-                                changed = true;
-                            }
                         }
                     }
                 }

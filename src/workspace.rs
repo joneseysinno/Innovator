@@ -2,6 +2,7 @@
 
 pub mod app_shell;
 pub mod app_signal;
+pub mod from_seed;
 pub mod handle_result;
 pub mod header;
 pub mod page;

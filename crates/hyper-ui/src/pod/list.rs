@@ -1,12 +1,13 @@
 use crate::layout::Overrides;
 
+use super::shell::POD_STACK_GAP;
 use super::{Pod, PodId};
 
 /// Flat ordered list of pods — a vertical stack within a page.
 #[derive(Debug, Clone)]
 pub struct PodList {
     pub pods: Vec<Pod>,
-    /// Pixel gap between pods (divider thickness).
+    /// Pixel gap between pods (matches shell column gap).
     pub gap: f32,
     /// Per-size-class size overrides from divider drags.
     pub overrides: Overrides,
@@ -18,7 +19,7 @@ impl Default for PodList {
     fn default() -> Self {
         Self {
             pods: vec![Pod::new(PodId(0), "Pod")],
-            gap: 1.0,
+            gap: POD_STACK_GAP,
             overrides: Overrides::new(),
             scroll_offset: 0.0,
         }
@@ -29,7 +30,7 @@ impl PodList {
     pub fn new(pods: Vec<Pod>) -> Self {
         Self {
             pods,
-            gap: 1.0,
+            gap: POD_STACK_GAP,
             overrides: Overrides::new(),
             scroll_offset: 0.0,
         }

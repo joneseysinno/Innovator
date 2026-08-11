@@ -1,11 +1,13 @@
 use super::kind::AnalysisKind;
-use super::templates::initial_page_tree;
+use super::templates::initial_page_ios;
 use super::workspace::StructuralWorkspace;
 use crate::engine::AnalysisOutput;
 use crate::pages::analysis::input_form::form_density::FormDensity;
 use crate::results::{load_results_for_wall, parse_checks};
 use crate::walls::load_walls;
+use crate::workspace::from_seed::page_tree_from_seeds;
 use crate::workspace::header::build_header;
+use crate::workspace::seed;
 use hyper_ui::InMemoryWorldSpatial;
 use hypernode::{HyperNode, PropValue};
 use infinite_db::InfiniteDb;
@@ -19,12 +21,13 @@ impl StructuralWorkspace {
             Some(wid) => load_analysis_state(db, wid),
             None => (None, None),
         };
-        let (page_tree, page_ios) = initial_page_tree();
+        let page_tree = page_tree_from_seeds(seed::STRUCTURAL.pages);
+        let page_ios = initial_page_ios();
         Self {
             header: Some(build_header()),
             page_tree,
             page_ios,
-            next_page_id: 3,
+            next_page_id: seed::STRUCTURAL.pages.len() as u32,
             active_analysis: AnalysisKind::SpecialConcreteWall,
             graph,
             active_wall,

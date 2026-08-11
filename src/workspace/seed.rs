@@ -3,12 +3,17 @@
 use hyper_ui::container::{Extent, Visibility};
 
 /// One stub IO slot inside a pod (no ContainerState).
+///
+/// For Structural, `label` is the IoKind key (`WallList`, `InputForm`, …).
+/// For placeholders, it is the stub display label.
 #[derive(Debug, Clone, Copy)]
 pub struct IoSeed {
     pub label: &'static str,
 }
 
 /// Pod placeholder — label, extent demand, and one or more stub IO.
+///
+/// `icon` maps to live [`hyper_ui::Pod::nav_icon`] when non-empty.
 #[derive(Debug, Clone, Copy)]
 pub struct PodSeed {
     pub label: &'static str,
@@ -24,6 +29,8 @@ pub struct PageSeed {
     pub icon: &'static str,
     pub extent: Extent,
     pub pods: &'static [PodSeed],
+    /// When true, page gets a Custom header bar (Structural Analysis).
+    pub custom_header: bool,
 }
 
 /// Workspace placeholder — consumed once at first run.
@@ -45,6 +52,12 @@ const PAGE_OVERVIEW: Extent = Extent::new(400.0, 960.0, 1.0);
 const POD_DOC: Extent = Extent::new(120.0, 280.0, 1.0);
 const POD_VIEW: Extent = Extent::new(160.0, 420.0, 1.5);
 const POD_GEOMETRY: Extent = Extent::new(200.0, 420.0, 1.2);
+
+/// Pod weight extents — `weight` is the PodList height flex (matches Path A ratios).
+const POD_WEIGHT_REF: f32 = 480.0;
+const fn pod_weight(weight: f32) -> Extent {
+    Extent::new(80.0, weight * POD_WEIGHT_REF, weight)
+}
 
 const STUB_ONE: &[IoSeed] = &[IoSeed { label: "Stub" }];
 const STUB_GEOMETRY: &[IoSeed] = &[
@@ -73,12 +86,14 @@ const HOME_PAGES: &[PageSeed] = &[
         icon: "H",
         extent: PAGE_OVERVIEW,
         pods: HOME_LAUNCHER_PODS,
+        custom_header: false,
     },
     PageSeed {
         label: "Recents",
         icon: "H",
         extent: PAGE_DOCS,
         pods: HOME_RECENTS_PODS,
+        custom_header: false,
     },
 ];
 
@@ -90,14 +105,81 @@ pub const HOME: WorkspaceSeed = WorkspaceSeed {
     pages: HOME_PAGES,
 };
 
-// ── Structural (real pages built separately; seed is metadata only) ─────────
+// ── Structural (Navigation · Analysis · Results) ────────────────────────────
+
+const STRUCTURAL_NAV_PODS: &[PodSeed] = &[
+    PodSeed {
+        label: "Wall List",
+        icon: "≡",
+        extent: pod_weight(0.35),
+        ios: &[IoSeed { label: "WallList" }],
+    },
+    PodSeed {
+        label: "Summary",
+        icon: "▣",
+        extent: pod_weight(0.65),
+        ios: &[IoSeed { label: "WallSummary" }],
+    },
+];
+const STRUCTURAL_ANALYSIS_PODS: &[PodSeed] = &[
+    PodSeed {
+        label: "Input",
+        icon: "▤",
+        extent: pod_weight(0.30),
+        ios: &[IoSeed { label: "InputForm" }],
+    },
+    PodSeed {
+        label: "Wall View",
+        icon: "▥",
+        extent: pod_weight(0.70),
+        ios: &[IoSeed { label: "WallView" }],
+    },
+];
+const STRUCTURAL_RESULTS_PODS: &[PodSeed] = &[
+    PodSeed {
+        label: "Results",
+        icon: "▦",
+        extent: pod_weight(0.70),
+        ios: &[IoSeed { label: "ResultsTable" }],
+    },
+    PodSeed {
+        label: "Status",
+        icon: "▧",
+        extent: pod_weight(0.30),
+        ios: &[IoSeed { label: "Status" }],
+    },
+];
+
+const STRUCTURAL_PAGES: &[PageSeed] = &[
+    PageSeed {
+        label: "Navigation",
+        icon: "N",
+        extent: Extent::new(280.0, 360.0, 0.0),
+        pods: STRUCTURAL_NAV_PODS,
+        custom_header: false,
+    },
+    PageSeed {
+        label: "Analysis",
+        icon: "A",
+        extent: Extent::new(400.0, 800.0, 1.0),
+        pods: STRUCTURAL_ANALYSIS_PODS,
+        custom_header: true,
+    },
+    PageSeed {
+        label: "Results",
+        icon: "R",
+        extent: Extent::new(320.0, 560.0, 1.0),
+        pods: STRUCTURAL_RESULTS_PODS,
+        custom_header: false,
+    },
+];
 
 pub const STRUCTURAL: WorkspaceSeed = WorkspaceSeed {
     open_id: "structural_analysis",
     label: "Structural",
     icon: "S",
     intent: Visibility::Hidden,
-    pages: &[], // real Navigation · Analysis · Results from StructuralWorkspace::new
+    pages: STRUCTURAL_PAGES,
 };
 
 // ── Project Management ──────────────────────────────────────────────────────
@@ -113,6 +195,7 @@ const PM_PAGES: &[PageSeed] = &[PageSeed {
     icon: "P",
     extent: PAGE_OVERVIEW,
     pods: PM_PODS,
+    custom_header: false,
 }];
 
 pub const PROJECT_MANAGEMENT: WorkspaceSeed = WorkspaceSeed {
@@ -151,12 +234,14 @@ const ENG_PAGES: &[PageSeed] = &[
         icon: "E",
         extent: PAGE_DOCS,
         pods: ENG_DOCS_PODS,
+        custom_header: false,
     },
     PageSeed {
         label: "Viewer",
         icon: "E",
         extent: PAGE_VIEWER,
         pods: ENG_VIEW_PODS,
+        custom_header: false,
     },
 ];
 
@@ -181,6 +266,7 @@ const DRAFT_PAGES: &[PageSeed] = &[
             extent: POD_DOC,
             ios: STUB_ONE,
         }],
+        custom_header: false,
     },
     PageSeed {
         label: "Viewer",
@@ -192,6 +278,7 @@ const DRAFT_PAGES: &[PageSeed] = &[
             extent: POD_VIEW,
             ios: STUB_ONE,
         }],
+        custom_header: false,
     },
 ];
 
@@ -216,6 +303,7 @@ const CRANE_PAGES: &[PageSeed] = &[
             extent: POD_DOC,
             ios: STUB_ONE,
         }],
+        custom_header: false,
     },
     PageSeed {
         label: "Viewer",
@@ -227,6 +315,7 @@ const CRANE_PAGES: &[PageSeed] = &[
             extent: POD_VIEW,
             ios: STUB_ONE,
         }],
+        custom_header: false,
     },
 ];
 
@@ -250,6 +339,7 @@ const HR_PAGES: &[PageSeed] = &[PageSeed {
         extent: POD_DOC,
         ios: STUB_ONE,
     }],
+    custom_header: false,
 }];
 
 pub const HR: WorkspaceSeed = WorkspaceSeed {
@@ -272,6 +362,7 @@ const ACCOUNTING_PAGES: &[PageSeed] = &[PageSeed {
         extent: POD_DOC,
         ios: STUB_ONE,
     }],
+    custom_header: false,
 }];
 
 pub const ACCOUNTING: WorkspaceSeed = WorkspaceSeed {
