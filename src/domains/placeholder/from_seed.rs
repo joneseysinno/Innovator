@@ -3,7 +3,8 @@
 use super::{PlaceholderWorkspace, StubIoMap};
 use crate::workspace::seed::{PageSeed, PodSeed, WorkspaceSeed};
 use hyper_ui::{
-    Extent, PageId, PageNode, PageTree, Pod, PodId, PodList, SeamDirection,
+    default_icon_rail_config, Extent, PageId, PageNode, PageTree, Pod, PodId, PodList,
+    SeamDirection,
 };
 
 impl PlaceholderWorkspace {
@@ -23,6 +24,7 @@ impl PlaceholderWorkspace {
             page_viewport_ids: Default::default(),
             page_show_triggers: Default::default(),
             pod_collapse_triggers: Default::default(),
+            icon_rail_triggers: Default::default(),
         }
     }
 }
@@ -54,19 +56,27 @@ fn build_page(page_id: PageId, seed: &PageSeed) -> (PageNode, StubIoMap) {
         let labels: Vec<String> = pod_seed.ios.iter().map(|io| io.label.to_string()).collect();
         stubs.insert((page_id, pod_id), labels);
     }
-    let node = PageNode::new(page_id, PodList::new(pods))
+    let has_nav = pods.iter().any(|p| p.nav_icon.is_some());
+    let mut node = PageNode::new(page_id, PodList::new(pods))
         .with_label(seed.label, seed.icon)
         .with_extent(seed.extent);
+    if has_nav {
+        node = node.with_icon_rail(Some(default_icon_rail_config()));
+    }
     (node, stubs)
 }
 
 fn build_pod(id: PodId, seed: &PodSeed) -> Pod {
     let ideal_ref = 480.0;
     let height = (seed.extent.ideal / ideal_ref).max(0.01);
-    Pod::new(id, seed.label)
+    let mut pod = Pod::new(id, seed.label)
         .with_min_height(seed.extent.min)
         .with_height(height)
-        .with_extent_override(seed.extent)
+        .with_extent_override(seed.extent);
+    if !seed.icon.is_empty() {
+        pod = pod.with_nav_icon(seed.icon);
+    }
+    pod
 }
 
 trait PodExtentExt {

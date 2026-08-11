@@ -1,13 +1,15 @@
-use super::build_icon_rail::{build_icon_rail, default_pod_icons};
 use super::build_page_header::{build_analysis_page_header, build_split_only_header};
 use super::io_kind::IoKind;
 use super::workspace::StructuralWorkspace;
 use crate::pages::{build_analysis, build_navigation, build_results};
 use crate::pages::placeholder::build_empty_pod;
 use hyper_ui::particles::{
-    Particle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle, ViewportParticle,
+    Particle, StackParticle, TriggerParticle, ViewParticle, ViewportParticle,
 };
-use hyper_ui::{IconRailSide, PageHeaderSlots, PageId, PageNode, PodId};
+use hyper_ui::{
+    build_pod_icon_rail, effective_icon_rail, wrap_pod_column, IconRailSide, PageHeaderSlots,
+    PageId, PageNode,
+};
 
 /// Page region particle — one child per **Shown** page, plus a rail for Hidden.
 pub fn build_pages(ws: &mut StructuralWorkspace) -> Particle {
@@ -74,7 +76,7 @@ fn build_page_rail(
     }
     let column = StackParticle::column(items).with_gap(4.0);
     Particle::Surface(
-        SurfaceParticle::new([0.12, 0.13, 0.16, 1.0])
+        hyper_ui::particles::SurfaceParticle::new([0.12, 0.13, 0.16, 1.0])
             .with_padding(2.0)
             .with_radius(0.0)
             .with_child(Particle::Stack(column)),
@@ -87,25 +89,27 @@ fn build_one_page(
     ios: &[(hyper_ui::PodId, IoKind)],
 ) -> Particle {
     let raw_content = build_page_content(ws, ios);
-    let content = wrap_pods_with_title_bars(ws, page, raw_content);
+    let content = wrap_pods_with_shell(ws, page, raw_content);
     let viewport = ViewportParticle::new().with_child(content);
     ws.page_viewport_ids.insert(page.id, viewport.id);
     let content = Particle::Viewport(viewport);
 
     let mut body_children = Vec::new();
-
-    if let Some(rail) = &page.icon_rail {
-        let icons = default_pod_icons(page.pods.pods.len());
-        let rail_particle = build_icon_rail(page, &icons, &mut ws.icon_rail_triggers);
-        match rail.side {
-            IconRailSide::Left => {
-                body_children.push(rail_particle);
-                body_children.push(content);
+    let rail_cfg = effective_icon_rail(page);
+    if let Some(rail) = &rail_cfg {
+        if let Some(rail_particle) = build_pod_icon_rail(page, &mut ws.icon_rail_triggers) {
+            match rail.side {
+                IconRailSide::Left => {
+                    body_children.push(rail_particle);
+                    body_children.push(content);
+                }
+                IconRailSide::Right => {
+                    body_children.push(content);
+                    body_children.push(rail_particle);
+                }
             }
-            IconRailSide::Right => {
-                body_children.push(content);
-                body_children.push(rail_particle);
-            }
+        } else {
+            body_children.push(content);
         }
     } else {
         body_children.push(content);
@@ -144,40 +148,21 @@ fn build_one_page(
     Particle::Stack(StackParticle::column(column).with_gap(0.0))
 }
 
-/// Wrap each pod child with a clickable title bar that toggles collapse.
+/// Wrap each pod child with uniform bordered chrome (title bar + body).
 /// Collapsed pods omit the IO body particle — state lives on the workspace.
-fn wrap_pods_with_title_bars(
+fn wrap_pods_with_shell(
     ws: &mut StructuralWorkspace,
     page: &PageNode,
     content: Particle,
 ) -> Particle {
-    let Particle::Stack(mut stack) = content else {
+    let Particle::Stack(stack) = content else {
         return content;
     };
-    let mut wrapped = Vec::with_capacity(stack.children.len());
-    for (i, child) in stack.children.drain(..).enumerate() {
-        let pod = page.pods.pods.get(i);
-        let (pod_id, title, collapsed) = match pod {
-            Some(p) => (p.id, p.title.clone(), p.collapsed),
-            None => (PodId(i as u32), format!("Pod {i}"), false),
-        };
-        let trigger = TriggerParticle::new(title);
-        ws.pod_collapse_triggers.insert(trigger.id, pod_id);
-        let bar = Particle::Surface(
-            SurfaceParticle::new([0.16, 0.17, 0.20, 1.0])
-                .with_padding(4.0)
-                .with_radius(0.0)
-                .with_child(Particle::Trigger(trigger)),
-        );
-        let pod_col = if collapsed {
-            Particle::Stack(StackParticle::column(vec![bar]).with_gap(0.0))
-        } else {
-            Particle::Stack(StackParticle::column(vec![bar, child]).with_gap(0.0))
-        };
-        wrapped.push(pod_col);
+    let (wrapped, triggers) = wrap_pod_column(&page.pods.pods, stack.children);
+    for (trigger_id, pod_id) in triggers {
+        ws.pod_collapse_triggers.insert(trigger_id, pod_id);
     }
-    stack.children = wrapped;
-    Particle::Stack(stack)
+    wrapped
 }
 
 fn build_page_content(

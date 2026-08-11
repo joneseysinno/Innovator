@@ -166,6 +166,9 @@ fn restore_pod(p: &PersistedPod) -> Pod {
     let mut pod = Pod::new(PodId(p.id), p.title.clone())
         .with_min_height(p.min_height)
         .with_height(p.height);
+    if let Some(icon) = &p.nav_icon {
+        pod = pod.with_nav_icon(icon.clone());
+    }
     pod.state = restore_container(&p.state);
     // Align collapsed flag with intent.
     pod.collapsed = matches!(pod.state.intent, Visibility::Collapsed);

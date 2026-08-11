@@ -131,6 +131,7 @@ pub(crate) fn window_event(
             let wall_view_sink = analysis.and_then(|ws| ws.wall_view_sink);
             let icon_rail_triggers = analysis
                 .map(|ws| ws.icon_rail_triggers.clone())
+                .or_else(|| placeholder.map(|ws| ws.icon_rail_triggers.clone()))
                 .unwrap_or_default();
             let pod_collapse_triggers = analysis
                 .map(|ws| ws.pod_collapse_triggers.clone())

@@ -36,7 +36,12 @@ pub use particles::{
     SinkParticle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle,
     ViewportParticle,
 };
-pub use pod::{Pod, PodDivider, PodDividerRenderer, PodId, PodList, COLLAPSED_HEIGHT};
+pub use pod::{
+    build_pod_icon_rail, default_icon_rail_config, effective_icon_rail, pod_nav_icons, pod_shell,
+    wrap_pod_column, Pod, PodDivider, PodDividerRenderer, PodId, PodList, PodShell,
+    COLLAPSED_HEIGHT, POD_FRAME_BORDER, POD_FRAME_BORDER_WIDTH, POD_FRAME_FILL, POD_STACK_GAP,
+    POD_TITLE_FILL,
+};
 pub use renderer::{
     cull_nodes_from_infinite_db, EdgeDrawCmd, EdgeKindGpu, HyperRenderer, InMemorySpatial,
     InMemoryWorldSpatial, SceneCamera, SceneNode, SceneRenderer, SpatialSource, WorldEdge,

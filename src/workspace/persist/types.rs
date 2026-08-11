@@ -106,4 +106,7 @@ pub struct PersistedPod {
     pub title: String,
     pub min_height: f32,
     pub height: f32,
+    /// Optional page-rail glyph; absent in older saves.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nav_icon: Option<String>,
 }

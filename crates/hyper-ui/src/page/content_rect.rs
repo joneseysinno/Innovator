@@ -1,4 +1,5 @@
 use crate::geom::Rect;
+use crate::pod::effective_icon_rail;
 
 use super::{IconRailSide, PageNode};
 
@@ -14,7 +15,7 @@ impl PageNode {
             size.y = (size.y - h).max(0.0);
         }
 
-        if let Some(rail) = &self.icon_rail {
+        if let Some(rail) = effective_icon_rail(self) {
             let w = rail.width.min(size.x);
             match rail.side {
                 IconRailSide::Left => {
@@ -42,9 +43,9 @@ impl PageNode {
         ))
     }
 
-    /// Icon rail strip beside the content area, if configured.
+    /// Icon rail strip beside the content area when any pod has a nav icon.
     pub fn icon_rail_rect(&self, page_rect: Rect) -> Option<Rect> {
-        let rail = self.icon_rail.as_ref()?;
+        let rail = effective_icon_rail(self)?;
         let mut origin = page_rect.origin;
         let mut size = page_rect.size;
 

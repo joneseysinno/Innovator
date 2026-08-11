@@ -5,11 +5,15 @@ use super::PlaceholderWorkspace;
 use hyper_ui::particles::{
     Particle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle, ViewportParticle,
 };
-use hyper_ui::{PageId, PageNode, Visibility};
+use hyper_ui::{
+    build_pod_icon_rail, effective_icon_rail, wrap_pod_column, IconRailSide, PageId, PageNode,
+    Visibility,
+};
 
 pub fn build_content(ws: &mut PlaceholderWorkspace) -> Particle {
     ws.page_show_triggers.clear();
     ws.pod_collapse_triggers.clear();
+    ws.icon_rail_triggers.clear();
     ws.page_viewport_ids.clear();
 
     let shown_ids: Vec<PageId> = ws
@@ -73,28 +77,44 @@ fn build_page_rail(
 }
 
 fn build_one_page(ws: &mut PlaceholderWorkspace, page: &PageNode) -> Particle {
-    let mut pod_children = Vec::new();
+    let mut bodies = Vec::new();
     for pod in &page.pods.pods {
         let labels = ws
             .stub_ios
             .get(&(page.id, pod.id))
             .map(|v| v.iter().map(|s| s.as_str()).collect::<Vec<_>>())
             .unwrap_or_default();
-        let content = build_stub_stack(&labels, pod);
-        // Collapse trigger title bar
-        let title = TriggerParticle::new(pod.title.clone());
-        ws.pod_collapse_triggers.insert(title.id, pod.id);
-        let column = StackParticle::column(vec![Particle::Trigger(title), content]).with_gap(2.0);
-        pod_children.push(Particle::Surface(
-            SurfaceParticle::new([0.10, 0.11, 0.13, 1.0])
-                .with_padding(2.0)
-                .with_radius(0.0)
-                .with_child(Particle::Stack(column)),
-        ));
+        bodies.push(build_stub_stack(&labels, pod));
     }
 
-    let stack = Particle::Stack(StackParticle::column(pod_children).with_gap(4.0));
+    let (stack, triggers) = wrap_pod_column(&page.pods.pods, bodies);
+    for (trigger_id, pod_id) in triggers {
+        ws.pod_collapse_triggers.insert(trigger_id, pod_id);
+    }
+
     let viewport = ViewportParticle::new().with_child(stack);
     ws.page_viewport_ids.insert(page.id, viewport.id);
-    Particle::Viewport(viewport)
+    let content = Particle::Viewport(viewport);
+
+    let mut body_children = Vec::new();
+    if let Some(rail) = effective_icon_rail(page) {
+        if let Some(rail_particle) = build_pod_icon_rail(page, &mut ws.icon_rail_triggers) {
+            match rail.side {
+                IconRailSide::Left => {
+                    body_children.push(rail_particle);
+                    body_children.push(content);
+                }
+                IconRailSide::Right => {
+                    body_children.push(content);
+                    body_children.push(rail_particle);
+                }
+            }
+        } else {
+            body_children.push(content);
+        }
+    } else {
+        body_children.push(content);
+    }
+
+    Particle::Stack(StackParticle::row(body_children).with_gap(0.0))
 }

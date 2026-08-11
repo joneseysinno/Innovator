@@ -152,6 +152,7 @@ fn capture_pod(pod: &Pod) -> PersistedPod {
         title: pod.title.clone(),
         min_height: pod.min_height,
         height: pod.height,
+        nav_icon: pod.nav_icon.clone(),
     }
 }
 

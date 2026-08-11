@@ -2,7 +2,7 @@ use crate::geom::{Rect, Vec2};
 use crate::layout::{arrange_particle, LayoutBox};
 use crate::page::{IconRailSide, PageId, PageTree};
 use crate::particles::{Particle, StackParticle};
-use crate::pod::{Pod, COLLAPSED_HEIGHT};
+use crate::pod::{effective_icon_rail, Pod, COLLAPSED_HEIGHT};
 
 /// Walk the PageTree and assign absolute layouts to page / header / rail / pod particles.
 ///
@@ -38,16 +38,26 @@ fn sync_page_interior(
     page_tree: &mut PageTree,
 ) {
     let header = page_tree.find(page_id).and_then(|p| p.header.clone());
-    let icon_rail = page_tree.find(page_id).and_then(|p| p.icon_rail.clone());
+    let icon_rail = page_tree.find(page_id).and_then(effective_icon_rail);
     let content_rect = page_tree
         .find(page_id)
         .map(|p| p.content_rect(page_rect))
         .unwrap_or(page_rect);
 
-    // Placeholder pages are a bare Viewport (no header / rail chrome).
+    // Pages with no header/rail chrome are a bare Viewport.
     if matches!(page_particle, Particle::Viewport(_)) {
         sync_pod_children(page_particle, page_id, content_rect, page_tree);
         return;
+    }
+
+    // Body-only row: optional icon rail + viewport (no page header).
+    if header.is_none() {
+        if let Particle::Stack(row) = page_particle {
+            if row.children.iter().any(|c| matches!(c, Particle::Viewport(_))) {
+                sync_body_row(page_particle, page_id, page_rect, content_rect, page_tree, icon_rail.as_ref());
+                return;
+            }
+        }
     }
 
     let Particle::Stack(column) = page_particle else {
@@ -93,13 +103,31 @@ fn sync_page_interior(
     });
     arrange_particle(body, body_rect);
 
+    sync_body_row(
+        body,
+        page_id,
+        page_rect,
+        content_rect,
+        page_tree,
+        icon_rail.as_ref(),
+    );
+}
+
+fn sync_body_row(
+    body: &mut Particle,
+    page_id: PageId,
+    page_rect: Rect,
+    content_rect: Rect,
+    page_tree: &mut PageTree,
+    icon_rail: Option<&crate::page::IconRailConfig>,
+) {
     let Particle::Stack(body_row) = body else {
         sync_pod_children(body, page_id, content_rect, page_tree);
         return;
     };
 
     let mut body_i = 0usize;
-    if let Some(rail) = &icon_rail {
+    if let Some(rail) = icon_rail {
         if let Some(page) = page_tree.find(page_id) {
             if let Some(rail_rect) = page.icon_rail_rect(page_rect) {
                 let rail_child_idx = match rail.side {

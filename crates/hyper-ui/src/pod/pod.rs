@@ -9,7 +9,11 @@ pub const COLLAPSED_HEIGHT: f32 = POD_LADDER.collapsed_extent;
 /// Reference height used to turn flex weights into preferred pixel ideals.
 const IDEAL_REFERENCE_HEIGHT: f32 = 480.0;
 
-/// A single pod — a collapsible content slot. No knowledge of its content.
+/// A single pod — a collapsible content slot for one function.
+///
+/// The pod has no knowledge of its body content: any UI components may be
+/// placed inside. When collapsed, only the title bar remains on screen.
+/// Optionally expose a [`Self::nav_icon`] on the page icon rail for jump navigation.
 #[derive(Debug, Clone)]
 pub struct Pod {
     pub id: PodId,
@@ -22,6 +26,8 @@ pub struct Pod {
     pub height: f32,
     /// Shown in the title bar when collapsed.
     pub title: String,
+    /// When set, an icon appears on the page rail for one-click expand+scroll.
+    pub nav_icon: Option<String>,
 }
 
 impl Pod {
@@ -49,6 +55,7 @@ impl Pod {
             min_height,
             height,
             title,
+            nav_icon: None,
         }
     }
 
@@ -63,6 +70,13 @@ impl Pod {
         self.min_height = min_height.max(0.0);
         self.state.extent.min = self.min_height;
         self.state.extent.ideal = self.state.extent.ideal.max(self.min_height);
+        self
+    }
+
+    /// Opt this pod into the page icon rail with the given glyph/label.
+    pub fn with_nav_icon(mut self, icon: impl Into<String>) -> Self {
+        let icon = icon.into();
+        self.nav_icon = if icon.is_empty() { None } else { Some(icon) };
         self
     }
 

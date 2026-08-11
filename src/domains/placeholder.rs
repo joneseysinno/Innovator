@@ -20,4 +20,5 @@ pub struct PlaceholderWorkspace {
     pub page_viewport_ids: HashMap<PageId, hyper_ui::ParticleId>,
     pub page_show_triggers: HashMap<hyper_ui::ParticleId, PageId>,
     pub pod_collapse_triggers: HashMap<hyper_ui::ParticleId, PodId>,
+    pub icon_rail_triggers: HashMap<hyper_ui::ParticleId, (PageId, PodId)>,
 }
