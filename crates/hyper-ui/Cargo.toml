@@ -18,6 +18,7 @@ bitvec.workspace      = true
 pollster.workspace    = true
 log.workspace         = true
 infinite-db.workspace = true
+hypernode.workspace   = true
 
 [dev-dependencies]
 env_logger.workspace = true

@@ -1,5 +1,6 @@
 use crate::container::{ContainerId, ContainerState, Extent, Visibility};
 use crate::layout::POD_LADDER;
+use hypernode::NodeId;
 
 use super::PodId;
 
@@ -17,6 +18,8 @@ const IDEAL_REFERENCE_HEIGHT: f32 = 480.0;
 #[derive(Debug, Clone)]
 pub struct Pod {
     pub id: PodId,
+    /// Graph identity (`SpaceClass::UIView`). `NodeId(0)` until dual-written.
+    pub node_id: NodeId,
     /// Shared container primitives.
     pub state: ContainerState,
     pub collapsed: bool,
@@ -50,6 +53,7 @@ impl Pod {
         );
         Self {
             id,
+            node_id: NodeId(0),
             state,
             collapsed: false,
             min_height,

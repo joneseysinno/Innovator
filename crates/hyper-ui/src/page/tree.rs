@@ -1,16 +1,10 @@
-use crate::seam::SeamDirection;
-
 use super::PageNode;
 
-/// Binary split tree for page-level workspace layout.
+/// Ordered page containers for workspace layout.
 ///
-/// Topology only — sizing comes from [`crate::layout::resolve`], not stored ratios.
-#[derive(Debug, Clone)]
-pub enum PageTree {
-    Leaf(PageNode),
-    Split {
-        direction: SeamDirection,
-        first: Box<PageTree>,
-        second: Box<PageTree>,
-    },
+/// Sizing is resolved by [`crate::layout::resolve`]. The order mirrors the
+/// workspace's Binding children in the composed view graph.
+#[derive(Debug, Clone, Default)]
+pub struct PageTree {
+    pub pages: Vec<PageNode>,
 }

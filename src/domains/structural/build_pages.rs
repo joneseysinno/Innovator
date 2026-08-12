@@ -1,18 +1,19 @@
-use super::build_page_header::{build_analysis_page_header, build_split_only_header};
-use super::io_kind::IoKind;
+use super::template_ids::GENERIC;
 use super::workspace::StructuralWorkspace;
-use crate::pages::{build_analysis, build_navigation, build_results};
-use crate::pages::placeholder::build_empty_pod;
+use crate::pages::registry::{page_templates, template_for};
+use crate::pages::template::TemplateCtx;
 use hyper_ui::particles::{
     Particle, StackParticle, TriggerParticle, ViewParticle, ViewportParticle,
 };
 use hyper_ui::{
-    build_pod_icon_rail, effective_icon_rail, wrap_pod_column, IconRailSide, PageHeaderSlots,
-    PageId, PageNode,
+    build_pod_icon_rail, effective_icon_rail, wrap_pod_column, IconRailSide, PageId, PageNode,
+    TemplateId,
 };
+use hypernode::Graph;
+use std::collections::HashMap;
 
 /// Page region particle — one child per **Shown** page, plus a rail for Hidden.
-pub fn build_pages(ws: &mut StructuralWorkspace) -> Particle {
+pub fn build_pages(ws: &mut StructuralWorkspace, graph: &Graph) -> Particle {
     ws.icon_rail_triggers.clear();
     ws.pod_collapse_triggers.clear();
     ws.page_split_triggers.clear();
@@ -28,11 +29,11 @@ pub fn build_pages(ws: &mut StructuralWorkspace) -> Particle {
         .map(|p| p.id)
         .collect();
     let mut children = Vec::with_capacity(shown_ids.len());
+    let templates = page_templates();
 
     for page_id in &shown_ids {
         let page = ws.page_tree.find(*page_id).cloned().expect("page leaf");
-        let ios = ws.page_ios.get(page_id).cloned().unwrap_or_default();
-        let particle = build_one_page(ws, &page, &ios);
+        let particle = build_one_page(ws, graph, &page, &templates);
         children.push(particle);
     }
 
@@ -85,10 +86,21 @@ fn build_page_rail(
 
 fn build_one_page(
     ws: &mut StructuralWorkspace,
+    graph: &Graph,
     page: &PageNode,
-    ios: &[(hyper_ui::PodId, IoKind)],
+    templates: &HashMap<TemplateId, Box<dyn crate::pages::template::PageTemplate>>,
 ) -> Particle {
-    let raw_content = build_page_content(ws, ios);
+    let template_id = ws.page_templates.get(&page.id).copied().unwrap_or(GENERIC);
+    let template = template_for(templates, template_id);
+    let raw_content = {
+        let mut ctx = TemplateCtx {
+            workspace: ws,
+            graph,
+            page,
+            page_id: page.id,
+        };
+        template.build_body(&mut ctx)
+    };
     let content = wrap_pods_with_shell(ws, page, raw_content);
     let viewport = ViewportParticle::new().with_child(content);
     ws.page_viewport_ids.insert(page.id, viewport.id);
@@ -119,27 +131,16 @@ fn build_one_page(
 
     let mut column = Vec::new();
     if let Some(header_cfg) = &page.header {
-        let header = match header_cfg.slots {
-            PageHeaderSlots::Custom => {
-                // Analysis-style header with live ratios when this page has InputForm/WallView.
-                let is_analysis = ios.iter().any(|(_, k)| {
-                    matches!(k, IoKind::InputForm | IoKind::WallView)
-                });
-                if is_analysis {
-                    let (p, status_id) = build_analysis_page_header(
-                        page.id,
-                        ws.last_analysis.as_ref(),
-                        &mut ws.page_split_triggers,
-                    );
-                    ws.analysis_header_status_id = Some(status_id);
-                    p
-                } else {
-                    build_split_only_header(page.id, &mut ws.page_split_triggers)
-                }
-            }
-            PageHeaderSlots::None => {
-                build_split_only_header(page.id, &mut ws.page_split_triggers)
-            }
+        let _configured_slots = header_cfg.slots;
+        let _template_slots = template.header_slots();
+        let header = {
+            let mut ctx = TemplateCtx {
+                workspace: ws,
+                graph,
+                page,
+                page_id: page.id,
+            };
+            template.build_header(&mut ctx)
         };
         column.push(header);
     }
@@ -163,84 +164,4 @@ fn wrap_pods_with_shell(
         ws.pod_collapse_triggers.insert(trigger_id, pod_id);
     }
     wrapped
-}
-
-fn build_page_content(
-    ws: &mut StructuralWorkspace,
-    ios: &[(hyper_ui::PodId, IoKind)],
-) -> Particle {
-    let kinds: Vec<IoKind> = ios.iter().map(|(_, k)| *k).collect();
-    match kinds.as_slice() {
-        [IoKind::WallList, IoKind::WallSummary] => build_navigation(ws),
-        [IoKind::InputForm, IoKind::WallView] => build_analysis(ws),
-        [IoKind::ResultsTable, IoKind::Status] => build_results(ws),
-        [IoKind::Empty] | [] => build_empty_pod("Empty page"),
-        _ => {
-            // Generic: build each IO independently in pod order (vertical stack).
-            let mut pods = Vec::new();
-            for (_, kind) in ios {
-                pods.push(build_single_io(ws, *kind));
-            }
-            Particle::Stack(StackParticle::column(pods).with_gap(0.0))
-        }
-    }
-}
-
-fn build_single_io(ws: &mut StructuralWorkspace, kind: IoKind) -> Particle {
-    match kind {
-        IoKind::WallList => {
-            let list = crate::pages::navigation::wall_list::build_wall_list(
-                &ws.graph,
-                ws.active_wall,
-            );
-            ws.wall_sinks.extend(list.sinks);
-            ws.nav_triggers.extend(list.triggers);
-            list.particle
-        }
-        IoKind::WallSummary => {
-            crate::pages::navigation::wall_summary::build_wall_summary(&ws.graph, ws.active_wall)
-                .particle
-        }
-        IoKind::InputForm => {
-            let node = ws
-                .active_wall
-                .and_then(|id| ws.graph.nodes.get(&id))
-                .cloned();
-            let form = crate::pages::analysis::input_form::build_input_form(
-                node.as_ref(),
-                ws.input_size_class,
-                ws.field_builder.as_ref(),
-            );
-            ws.field_props.extend(form.field_props);
-            ws.u8_fields.extend(form.u8_fields);
-            ws.analysis_actions.extend(form.actions);
-            ws.builder_slots.extend(form.builder_slots);
-            ws.promote_props.extend(form.promote_props);
-            form.particle
-        }
-        IoKind::WallView => {
-            let node = ws
-                .active_wall
-                .and_then(|id| ws.graph.nodes.get(&id))
-                .cloned();
-            let view = crate::pages::analysis::wall_view::build_wall_view(node.as_ref());
-            ws.wall_view_sink = Some(view.sink_id);
-            ws.wall_spatial = view.spatial;
-            view.particle
-        }
-        IoKind::ResultsTable => {
-            let checks = ws
-                .last_results
-                .as_ref()
-                .map(crate::results::parse_checks)
-                .unwrap_or_default();
-            crate::pages::results::results_table::build_results_table(&checks).particle
-        }
-        IoKind::Status => {
-            let status = crate::pages::results::status::build_status(ws.last_analysis.as_ref());
-            ws.results_triggers.extend(status.triggers);
-            status.particle
-        }
-        IoKind::Empty => build_empty_pod("Empty"),
-    }
 }

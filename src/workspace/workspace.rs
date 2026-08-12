@@ -3,6 +3,7 @@
 use crate::domains::home::HomeWorkspace;
 use crate::domains::placeholder::PlaceholderWorkspace;
 use crate::domains::structural::StructuralWorkspace;
+use crate::workspace::graph_containers::{count_page_tree_containers, insert_uiview};
 use crate::workspace::header::WorkspaceHeader;
 use crate::workspace::seed::{self, WorkspaceSeed};
 use crate::workspace::tab::WorkspaceTab;
@@ -10,6 +11,7 @@ use crate::workspace::workspace_id::WorkspaceId;
 use hyper_ui::container::{ContainerId, ContainerState, Extent, Visibility};
 use hyper_ui::particles::Particle;
 use hyper_ui::{PageTree, ParticleId};
+use hypernode::{Graph, SpaceClass};
 use infinite_db::InfiniteDb;
 
 /// One workspace row in the app tab strip.
@@ -17,6 +19,8 @@ pub struct Workspace {
     pub state: ContainerState,
     pub open_id: &'static str,
     pub body: WorkspaceBody,
+    /// Graph UIView identity for this workspace container.
+    pub node_id: hypernode::NodeId,
 }
 
 pub enum WorkspaceBody {
@@ -27,25 +31,44 @@ pub enum WorkspaceBody {
 
 impl Workspace {
     /// Build every seed into live workspaces (first run). Seeds are not stored.
-    pub fn from_seeds(db: &mut InfiniteDb) -> Vec<Self> {
-        seed::ALL
+    pub fn from_seeds(db: &mut InfiniteDb, graph: &mut Graph) -> Vec<Self> {
+        let workspaces: Vec<Self> = seed::ALL
             .iter()
             .enumerate()
-            .map(|(i, seed)| Self::from_seed(seed, WorkspaceId(i as u64 + 1), db))
-            .collect()
+            .map(|(i, seed)| Self::from_seed(seed, WorkspaceId(i as u64 + 1), db, graph))
+            .collect();
+        debug_assert_container_parity(graph, &workspaces);
+        workspaces
     }
 
-    pub fn from_seed(seed: &WorkspaceSeed, id: WorkspaceId, db: &mut InfiniteDb) -> Self {
+    pub fn from_seed(
+        seed: &WorkspaceSeed,
+        id: WorkspaceId,
+        db: &mut InfiniteDb,
+        graph: &mut Graph,
+    ) -> Self {
         let state = container_state(id, seed.label, seed.icon, seed.intent);
-        let body = match seed.open_id {
-            "home" => WorkspaceBody::Home(HomeWorkspace::new()),
-            "structural_analysis" => WorkspaceBody::Structural(StructuralWorkspace::new(db)),
-            _ => WorkspaceBody::Placeholder(PlaceholderWorkspace::from_seed(seed)),
+        let (body, node_id) = match seed.open_id {
+            "home" => {
+                let node_id = insert_uiview(graph, seed.label);
+                (WorkspaceBody::Home(HomeWorkspace::new()), node_id)
+            }
+            "structural_analysis" => {
+                let ws = StructuralWorkspace::new(db, graph);
+                let node_id = ws.node_id;
+                (WorkspaceBody::Structural(ws), node_id)
+            }
+            _ => {
+                let ws = PlaceholderWorkspace::from_seed(seed, graph);
+                let node_id = ws.node_id;
+                (WorkspaceBody::Placeholder(ws), node_id)
+            }
         };
         Self {
             state,
             open_id: seed.open_id,
             body,
+            node_id,
         }
     }
 
@@ -53,8 +76,9 @@ impl Workspace {
         id: WorkspaceId,
         title: impl Into<String>,
         db: &mut InfiniteDb,
+        graph: &mut Graph,
     ) -> Self {
-        let mut ws = Self::from_seed(&seed::STRUCTURAL, id, db);
+        let mut ws = Self::from_seed(&seed::STRUCTURAL, id, db, graph);
         ws.state.label = title.into();
         ws.state.intent = Visibility::Hidden;
         ws
@@ -110,11 +134,11 @@ impl Workspace {
         }
     }
 
-    pub fn build_content(&mut self) -> Particle {
+    pub fn build_content(&mut self, graph: &Graph) -> Particle {
         match &mut self.body {
             WorkspaceBody::Home(ws) => crate::domains::home::build_content::build_content(ws),
             WorkspaceBody::Structural(ws) => {
-                crate::domains::structural::build_pages::build_pages(ws)
+                crate::domains::structural::build_pages::build_pages(ws, graph)
             }
             WorkspaceBody::Placeholder(ws) => {
                 crate::domains::placeholder::build_content::build_content(ws)
@@ -201,4 +225,24 @@ fn static_icon(icon: &str) -> &'static str {
         "○" => "·",
         _ => "·",
     }
+}
+
+/// Canary: UIView node count matches workspace + page + pod containers.
+fn debug_assert_container_parity(graph: &Graph, workspaces: &[Workspace]) {
+    let uiview = graph
+        .nodes
+        .values()
+        .filter(|n| n.space_class == SpaceClass::UIView)
+        .count();
+    let mut expected = 0usize;
+    for ws in workspaces {
+        expected += 1; // workspace node
+        if let Some(tree) = ws.page_tree() {
+            expected += count_page_tree_containers(tree);
+        }
+    }
+    debug_assert_eq!(
+        uiview, expected,
+        "UIView graph nodes ({uiview}) != container count ({expected})"
+    );
 }

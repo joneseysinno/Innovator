@@ -11,7 +11,7 @@ pub fn handle_value_changed(shell: &mut AppShell, field_id: ParticleId, value: F
         return;
     };
 
-    let (rebuild_ui, status) = {
+    let (rebuild_ui, status, wall_spatial) = {
         let Some(ws) = shell.workspaces[idx].structural_mut() else {
             return;
         };
@@ -22,7 +22,7 @@ pub fn handle_value_changed(shell: &mut AppShell, field_id: ParticleId, value: F
         let Some(wall_id) = ws.active_wall else {
             return;
         };
-        let Some(node) = ws.graph.nodes.get_mut(&wall_id) else {
+        let Some(node) = shell.graph.nodes.get_mut(&wall_id) else {
             return;
         };
         let prop = field_value_to_prop(&value, prefer_u8);
@@ -35,12 +35,20 @@ pub fn handle_value_changed(shell: &mut AppShell, field_id: ParticleId, value: F
             rebuild_ui = true;
         }
         let _ = persist_wall(&mut shell.db, node);
-        if is_geometry_or_rebar_key(&key) {
-            ws.wall_spatial = build_section_spatial(node);
-        }
+        let wall_spatial = if is_geometry_or_rebar_key(&key) {
+            Some(build_section_spatial(node))
+        } else {
+            None
+        };
         let status = format!("signal: ValueChanged {key}={}", value.display());
-        (rebuild_ui, status)
+        (rebuild_ui, status, wall_spatial)
     };
+
+    if let Some(spatial) = wall_spatial {
+        if let Some(ws) = shell.workspaces[idx].structural_mut() {
+            ws.wall_spatial = spatial;
+        }
+    }
 
     if rebuild_ui {
         let mut renderer = match shell.renderer.take() {

@@ -2,12 +2,13 @@ use super::input_form::build_input_form;
 use super::wall_view::build_wall_view;
 use crate::domains::structural::StructuralWorkspace;
 use hyper_ui::particles::{Particle, StackParticle};
+use hypernode::Graph;
 
 /// Build the Analysis page (InputForm | WallView) and wire interaction maps.
-pub fn build_analysis(ws: &mut StructuralWorkspace) -> Particle {
+pub fn build_analysis(ws: &mut StructuralWorkspace, graph: &Graph) -> Particle {
     let node = ws
         .active_wall
-        .and_then(|id| ws.graph.nodes.get(&id))
+        .and_then(|id| graph.nodes.get(&id))
         .cloned();
     let form = build_input_form(
         node.as_ref(),

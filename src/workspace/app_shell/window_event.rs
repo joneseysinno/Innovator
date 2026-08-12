@@ -10,7 +10,7 @@ use super::rebuild_seams::rebuild_seams;
 use super::sync_chrome_layouts::sync_chrome_layouts;
 use super::update_focus::update_focus_from_pointer;
 use super::AppShell;
-use crate::domains::structural::IoKind;
+use crate::domains::structural::template_ids::{INPUT_FORM, WALL_VIEW};
 use crate::pages::analysis::input_form::FormDensity;
 use crate::workspace::signal::WorkspaceSignal;
 use hyper_ui::layout::{arrange_particle, LayoutBox};
@@ -172,7 +172,7 @@ pub(crate) fn window_event(
                 let over_view = shell
                     .active()
                     .and_then(|a| a.structural())
-                    .and_then(|ws| ws.io_rect(pages_area, IoKind::WallView));
+                    .and_then(|ws| ws.pod_rect(pages_area, WALL_VIEW));
                 if let Some(view_rect) = over_view {
                     if view_rect.contains(cursor) {
                         let factor = match delta {
@@ -514,6 +514,7 @@ fn toggle_pod_collapse(
     let Some((page_id, content_rect)) = owner else {
         return false;
     };
+    let size_class = hyper_ui::SizeClass::from_width(content_rect.size.x.max(1.0));
     let Some(page) = tree.find_mut(page_id) else {
         return false;
     };
@@ -521,7 +522,7 @@ fn toggle_pod_collapse(
     let content_y =
         hyper_ui::PodList::content_y_of(&rects, pod_id, content_rect).unwrap_or(0.0);
     let screen_y = content_y - page.pods.scroll_offset;
-    page.pods.toggle(pod_id);
+    page.pods.toggle(pod_id, size_class);
     page.pods
         .anchor_scroll_on_toggle(pod_id, content_rect, screen_y);
     true
@@ -543,7 +544,7 @@ fn render_frame(shell: &mut AppShell, renderer: &mut hyper_ui::HyperRenderer) {
     let wall_view_rect = shell
         .active()
         .and_then(|a| a.structural())
-        .and_then(|ws| ws.io_rect(pages_area, IoKind::WallView));
+        .and_then(|ws| ws.pod_rect(pages_area, WALL_VIEW));
 
     while let Ok(msg) = shell.signal_rx.try_recv() {
         if let Some(id) = status_id {
@@ -704,7 +705,7 @@ fn maybe_update_size_class(shell: &mut AppShell) {
     let width = shell
         .active()
         .and_then(|a| a.structural())
-        .and_then(|ws| ws.io_rect(pages_area, IoKind::InputForm))
+        .and_then(|ws| ws.pod_rect(pages_area, INPUT_FORM))
         .map(|r| r.size.x);
     let Some(width) = width else {
         return;

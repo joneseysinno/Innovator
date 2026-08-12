@@ -45,14 +45,33 @@ fn session_json_forbids_resolved_and_rect_keys() {
             },
             focused_page: None,
             page_tree: None,
-            page_overrides: PersistedOverrides { entries: vec![] },
-            page_ios: None,
+            page_overrides: PersistedOverrides::default(),
+            page_templates: None,
+            pod_templates: None,
             next_page_id: None,
             stub_ios: None,
         }],
     };
     let value = serde_json::to_value(&session).unwrap();
     assert_no_forbidden_keys(&value);
+}
+
+#[test]
+fn collapse_overrides_roundtrip_scoped_by_size_class() {
+    let mut o = Overrides::new();
+    o.set_collapse(ContainerId(10), SizeClass::Compact, true);
+    o.set_collapse(ContainerId(10), SizeClass::Large, false);
+    let persisted = capture_overrides(&o);
+    let restored = super::apply::restore_overrides(&persisted);
+    assert_eq!(
+        restored.get_collapse(ContainerId(10), SizeClass::Compact),
+        Some(true)
+    );
+    assert_eq!(
+        restored.get_collapse(ContainerId(10), SizeClass::Large),
+        Some(false)
+    );
+    assert!(restored.get_collapse(ContainerId(10), SizeClass::Medium).is_none());
 }
 
 #[test]
@@ -99,8 +118,10 @@ fn save_load_roundtrip_file() {
                     class: PersistedSizeClass::Large,
                     fraction: 0.55,
                 }],
+                ..PersistedOverrides::default()
             },
-            page_ios: None,
+            page_templates: None,
+            pod_templates: None,
             next_page_id: Some(3),
             stub_ios: None,
         }],

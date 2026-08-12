@@ -39,6 +39,8 @@ impl PodList {
             );
         }
 
+        self.apply_resolved_collapse(viewport.size_class);
+
         for pod in &mut self.pods {
             pod.sync_state_from_fields();
         }

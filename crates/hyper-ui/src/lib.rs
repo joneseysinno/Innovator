@@ -29,7 +29,7 @@ pub use layout::{
 };
 pub use page::{
     sync_from_page_tree, IconRailConfig, IconRailSide, PageHeaderConfig, PageHeaderSlots, PageId,
-    PageNode, PageSeamId, PageSide, PageTree,
+    PageNode, PageSeamId, PageSide, PageTree, TemplateId,
 };
 pub use particles::{
     DirtyFlags, FieldParticle, FieldValue, Particle, ParticleId, ParticleTree, PointerKind,
@@ -38,7 +38,7 @@ pub use particles::{
 };
 pub use pod::{
     build_pod_icon_rail, default_icon_rail_config, effective_icon_rail, pod_nav_icons, pod_shell,
-    wrap_pod_column, Pod, PodDivider, PodDividerRenderer, PodId, PodList, PodShell,
+    wrap_pod_column, ComponentId, Pod, PodDivider, PodDividerRenderer, PodId, PodList, PodShell,
     COLLAPSED_HEIGHT, POD_FRAME_BORDER, POD_FRAME_BORDER_WIDTH, POD_FRAME_FILL, POD_STACK_GAP,
     POD_TITLE_FILL,
 };

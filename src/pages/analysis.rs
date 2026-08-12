@@ -3,6 +3,7 @@
 pub mod build;
 pub mod field_builder;
 pub mod input_form;
+pub mod template;
 pub mod wall_view;
 
 pub use build::build_analysis;

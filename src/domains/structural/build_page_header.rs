@@ -1,22 +1,30 @@
-use crate::engine::AnalysisOutput;
+use crate::results::parse_checks;
 use hyper_ui::particles::{
     Particle, ParticleId, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle,
 };
 use hyper_ui::PageId;
+use hypernode::{HyperNode, Node, PropValue};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
 /// Analysis page header — live result ratios + split trigger.
 pub fn build_analysis_page_header(
     page_id: PageId,
-    analysis: Option<&AnalysisOutput>,
+    results: Option<&Node>,
     split_triggers: &mut HashMap<ParticleId, PageId>,
 ) -> (Particle, ParticleId) {
-    let ratio_text = match analysis {
-        Some(out) => {
-            let overall = if out.overall_pass { "PASS" } else { "FAIL" };
-            let top = out
-                .checks
+    let ratio_text = match results {
+        Some(results) => {
+            let overall = if matches!(
+                results.get_prop("overall_pass"),
+                Some(PropValue::Bool(true))
+            ) {
+                "PASS"
+            } else {
+                "FAIL"
+            };
+            let checks = parse_checks(results);
+            let top = checks
                 .iter()
                 .filter(|c| !c.informational)
                 .max_by(|a, b| a.ratio.partial_cmp(&b.ratio).unwrap_or(Ordering::Equal));
@@ -34,12 +42,9 @@ pub fn build_analysis_page_header(
     let split = TriggerParticle::new("⧉");
     split_triggers.insert(split.id, page_id);
 
-    let row = StackParticle::row(vec![
-        Particle::Source(status),
-        Particle::Trigger(split),
-    ])
-    .with_gap(8.0)
-    .with_align(hyper_ui::particles::StackAlign::Center);
+    let row = StackParticle::row(vec![Particle::Source(status), Particle::Trigger(split)])
+        .with_gap(8.0)
+        .with_align(hyper_ui::particles::StackAlign::Center);
 
     let particle = Particle::Surface(
         SurfaceParticle::new([0.15, 0.16, 0.19, 1.0])

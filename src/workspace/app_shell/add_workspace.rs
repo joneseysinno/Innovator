@@ -16,7 +16,7 @@ pub fn add_workspace(shell: &mut AppShell) {
         .count()
         + 1;
     let title = format!("{} {n}", seed::STRUCTURAL.label);
-    let mut ws = Workspace::new_structural_titled(id, title, &mut shell.db);
+    let mut ws = Workspace::new_structural_titled(id, title, &mut shell.db, &mut shell.graph);
     ws.state.intent = Visibility::Hidden;
     shell.workspaces.push(ws);
     shell.set_active(id);

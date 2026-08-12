@@ -2,6 +2,7 @@
 
 mod apply_divider_drag;
 mod collapse;
+mod component_id;
 mod divider;
 mod icon_rail;
 mod id;
@@ -13,6 +14,8 @@ mod shell;
 #[cfg(test)]
 mod layout_tests;
 
+pub use component_id::ComponentId;
+pub use collapse::{default_collapse, resolved_collapse};
 pub use divider::{PodDivider, PodDividerRenderer};
 pub use icon_rail::{build_pod_icon_rail, default_icon_rail_config, effective_icon_rail};
 pub use id::PodId;

@@ -2,7 +2,6 @@ use crate::container::{FocusPath, Visibility};
 use crate::geom::{Rect, Vec2};
 use crate::layout::{InputClass, Overrides, SizeClass, Viewport, PAGE_LADDER};
 use crate::page::{PageId, PageNode, PageTree};
-use crate::seam::SeamDirection;
 use crate::{Extent, Pod, PodId, PodList};
 
 fn three_page_tree() -> PageTree {
@@ -15,14 +14,8 @@ fn three_page_tree() -> PageTree {
     let results = PageNode::new(PageId(2), PodList::default())
         .with_label("Results", "R")
         .with_extent(Extent::new(320.0, 560.0, 1.0));
-    PageTree::Split {
-        direction: SeamDirection::Vertical,
-        first: Box::new(PageTree::Leaf(nav)),
-        second: Box::new(PageTree::Split {
-            direction: SeamDirection::Vertical,
-            first: Box::new(PageTree::Leaf(analysis)),
-            second: Box::new(PageTree::Leaf(results)),
-        }),
+    PageTree {
+        pages: vec![nav, analysis, results],
     }
 }
 
@@ -95,9 +88,10 @@ fn shown_page_keeps_pods_scrollable() {
             .map(|i| Pod::new(PodId(i), format!("P{i}")).with_height(1.0))
             .collect(),
     );
-    let area = Rect::from_xywh(0.0, 0.0, 300.0, 390.0);
+    let area = Rect::from_xywh(0.0, 0.0, 1440.0, 390.0);
     let (rects, report) = pods.layout(area);
     assert_eq!(rects.len(), 4);
     assert!(report.demotions.is_empty());
+    assert!(report.scroll_extent > 0.0);
     assert!(pods.pods.iter().all(|p| p.state.resolved() == Visibility::Shown));
 }

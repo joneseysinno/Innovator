@@ -3,6 +3,7 @@
 pub mod build;
 pub mod results_table;
 pub mod status;
+pub mod template;
 
 pub use build::build_results;
 pub use results_table::ResultsTableIO;

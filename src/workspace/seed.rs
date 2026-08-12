@@ -4,7 +4,7 @@ use hyper_ui::container::{Extent, Visibility};
 
 /// One stub IO slot inside a pod (no ContainerState).
 ///
-/// For Structural, `label` is the IoKind key (`WallList`, `InputForm`, …).
+/// For Structural, labels are mapped to explicit UI template identifiers at construction.
 /// For placeholders, it is the stub display label.
 #[derive(Debug, Clone, Copy)]
 pub struct IoSeed {

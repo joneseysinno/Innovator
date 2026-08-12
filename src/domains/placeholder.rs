@@ -6,6 +6,7 @@ pub mod layout;
 pub mod stub_io;
 
 use hyper_ui::{Overrides, PageId, PageTree, PodId};
+use hypernode::NodeId;
 use std::collections::HashMap;
 
 /// Labels for stub IO stacked inside a pod: `(page, pod) → [io labels]`.
@@ -21,4 +22,6 @@ pub struct PlaceholderWorkspace {
     pub page_show_triggers: HashMap<hyper_ui::ParticleId, PageId>,
     pub pod_collapse_triggers: HashMap<hyper_ui::ParticleId, PodId>,
     pub icon_rail_triggers: HashMap<hyper_ui::ParticleId, (PageId, PodId)>,
+    /// Graph UIView identity for this workspace container.
+    pub node_id: NodeId,
 }

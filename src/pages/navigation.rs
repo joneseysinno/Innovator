@@ -1,6 +1,7 @@
 //! Navigation page — WallListIO / WallSummaryIO (Phase 2).
 
 pub mod build;
+pub mod template;
 pub mod wall_list;
 pub mod wall_summary;
 

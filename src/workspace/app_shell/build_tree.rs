@@ -26,10 +26,14 @@ pub fn build_tree(shell: &mut AppShell) -> Particle {
         .active()
         .and_then(|a| a.header())
         .map(|h| h.particle.clone());
-    let body = shell
-        .active_mut()
-        .map(|a| a.build_content())
-        .unwrap_or_else(empty_body);
+
+    let body = {
+        let idx = shell.workspaces.iter().position(|w| w.is_active());
+        match idx {
+            Some(idx) => shell.workspaces[idx].build_content(&shell.graph),
+            None => empty_body(),
+        }
+    };
 
     let workspace = wrap_workspace_host(header, body);
 

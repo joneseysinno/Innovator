@@ -2,12 +2,13 @@ use super::AppShell;
 use crate::auth::session::Session;
 use crate::devtools::PreviewPreset;
 use crate::results::ensure_results_space;
-use crate::walls::ensure_walls_space;
+use crate::walls::{ensure_walls_space, load_walls};
 use crate::workspace::persist::{self, LAYOUT_PATH};
 use crate::workspace::tab_strip::build_tab_strip;
 use crate::workspace::workspace::Workspace;
 use hyper_ui::container::Visibility;
 use hyper_ui::{FocusPath, InputClass, PageNode, Rect, ResolveReport, SizeClass};
+use hypernode::Graph;
 use infinite_db::InfiniteDb;
 use std::collections::HashMap;
 
@@ -22,11 +23,14 @@ impl AppShell {
             let _ = tx.send("engine online".into());
         });
 
+        let mut graph = Graph::new();
+        load_walls(&mut db, &mut graph);
+
         // Restore from layout.json when present; otherwise first-run seeds.
         let (workspaces, next_workspace_id) = match persist::load_layout(LAYOUT_PATH) {
-            Some(session) => persist::restore_workspaces(&session, &mut db),
+            Some(session) => persist::restore_workspaces(&session, &mut db, &mut graph),
             None => {
-                let ws = Workspace::from_seeds(&mut db);
+                let ws = Workspace::from_seeds(&mut db, &mut graph);
                 let next = ws.len() as u64 + 1;
                 (ws, next)
             }
@@ -53,6 +57,7 @@ impl AppShell {
             renderer: None,
             db,
             session,
+            graph,
             workspaces,
             focus,
             next_workspace_id,

@@ -1,4 +1,4 @@
-//! Page-level binary split tree — spatial containers above pods.
+//! Ordered page containers — spatial containers above pods.
 
 mod content_rect;
 mod find;
@@ -13,6 +13,7 @@ mod seam_id;
 mod side;
 mod split;
 mod sync_particles;
+mod template_id;
 mod tree;
 
 #[cfg(test)]
@@ -25,4 +26,5 @@ pub use node::PageNode;
 pub use seam_id::PageSeamId;
 pub use side::PageSide;
 pub use sync_particles::sync_from_page_tree;
+pub use template_id::TemplateId;
 pub use tree::PageTree;

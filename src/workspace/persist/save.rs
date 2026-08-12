@@ -1,13 +1,10 @@
 //! Capture live shell → PersistedSession and write layout.json.
 
 use super::types::*;
-use crate::domains::structural::IoKind;
 use crate::workspace::app_shell::AppShell;
 use crate::workspace::workspace::{Workspace, WorkspaceBody};
 use hyper_ui::container::{ContainerState, Extent, Visibility};
-use hyper_ui::{
-    Overrides, PageNode, PageTree, Pod, PodList, SeamDirection, SizeClass,
-};
+use hyper_ui::{Overrides, PageNode, PageTree, Pod, PodList, SizeClass};
 use std::path::Path;
 
 pub fn save_layout(path: impl AsRef<Path>, shell: &AppShell) -> std::io::Result<()> {
@@ -26,14 +23,15 @@ pub fn capture_session(shell: &AppShell) -> PersistedSession {
 }
 
 fn capture_workspace(ws: &Workspace) -> PersistedWorkspace {
-    let (page_tree, page_overrides, focused_page, page_ios, next_page_id, stub_ios) =
+    let (page_tree, page_overrides, focused_page, page_templates, pod_templates, next_page_id, stub_ios) =
         match &ws.body {
-            WorkspaceBody::Home(_) => (None, PersistedOverrides { entries: vec![] }, None, None, None, None),
+            WorkspaceBody::Home(_) => (None, PersistedOverrides::default(), None, None, None, None, None),
             WorkspaceBody::Structural(s) => (
                 Some(capture_page_tree(&s.page_tree)),
                 capture_overrides(&s.page_overrides),
                 Some(s.focused_page.0),
-                Some(capture_page_ios(&s.page_ios)),
+                Some(capture_page_templates(&s.page_templates)),
+                Some(capture_pod_templates(&s.pod_templates)),
                 Some(s.next_page_id),
                 None,
             ),
@@ -41,6 +39,7 @@ fn capture_workspace(ws: &Workspace) -> PersistedWorkspace {
                 Some(capture_page_tree(&p.page_tree)),
                 capture_overrides(&p.page_overrides),
                 Some(p.focused_page.0),
+                None,
                 None,
                 None,
                 Some(capture_stub_ios(&p.stub_ios)),
@@ -53,7 +52,8 @@ fn capture_workspace(ws: &Workspace) -> PersistedWorkspace {
         focused_page,
         page_tree,
         page_overrides,
-        page_ios,
+        page_templates,
+        pod_templates,
         next_page_id,
         stub_ios,
     }
@@ -95,7 +95,21 @@ pub(crate) fn capture_overrides(o: &Overrides) -> PersistedOverrides {
         })
         .collect();
     entries.sort_by_key(|e| (e.id, e.class as u8));
-    PersistedOverrides { entries }
+
+    let mut collapse_entries: Vec<_> = o
+        .iter_collapse()
+        .map(|(id, class, collapsed)| PersistedCollapseEntry {
+            id: id.0,
+            class: capture_size_class(class),
+            collapsed,
+        })
+        .collect();
+    collapse_entries.sort_by_key(|e| (e.id, e.class as u8));
+
+    PersistedOverrides {
+        entries,
+        collapse_entries,
+    }
 }
 
 fn capture_size_class(c: SizeClass) -> PersistedSizeClass {
@@ -108,24 +122,8 @@ fn capture_size_class(c: SizeClass) -> PersistedSizeClass {
 }
 
 fn capture_page_tree(tree: &PageTree) -> PersistedPageTree {
-    match tree {
-        PageTree::Leaf(node) => PersistedPageTree::Leaf(capture_page_node(node)),
-        PageTree::Split {
-            direction,
-            first,
-            second,
-        } => PersistedPageTree::Split {
-            direction: capture_seam(*direction),
-            first: Box::new(capture_page_tree(first)),
-            second: Box::new(capture_page_tree(second)),
-        },
-    }
-}
-
-fn capture_seam(d: SeamDirection) -> PersistedSeamDirection {
-    match d {
-        SeamDirection::Vertical => PersistedSeamDirection::Vertical,
-        SeamDirection::Horizontal => PersistedSeamDirection::Horizontal,
+    PersistedPageTree {
+        pages: tree.pages.iter().map(capture_page_node).collect(),
     }
 }
 
@@ -156,21 +154,25 @@ fn capture_pod(pod: &Pod) -> PersistedPod {
     }
 }
 
-fn capture_page_ios(
-    map: &std::collections::HashMap<hyper_ui::PageId, Vec<(hyper_ui::PodId, IoKind)>>,
-) -> Vec<(u32, Vec<(u32, String)>)> {
+fn capture_page_templates(
+    map: &std::collections::HashMap<hyper_ui::PageId, hyper_ui::TemplateId>,
+) -> Vec<(u32, String)> {
     let mut out: Vec<_> = map
         .iter()
-        .map(|(page, ios)| {
-            (
-                page.0,
-                ios.iter()
-                    .map(|(pod, kind)| (pod.0, io_kind_name(*kind).to_string()))
-                    .collect(),
-            )
-        })
+        .map(|(page, template)| (page.0, template.as_str().to_string()))
         .collect();
     out.sort_by_key(|(id, _)| *id);
+    out
+}
+
+fn capture_pod_templates(
+    map: &std::collections::HashMap<(hyper_ui::PageId, hyper_ui::PodId), hyper_ui::TemplateId>,
+) -> Vec<(u32, u32, String)> {
+    let mut out: Vec<_> = map
+        .iter()
+        .map(|((page, pod), template)| (page.0, pod.0, template.as_str().to_string()))
+        .collect();
+    out.sort_by_key(|(page, pod, _)| (*page, *pod));
     out
 }
 
@@ -183,16 +185,4 @@ fn capture_stub_ios(
         .collect();
     out.sort_by_key(|((p, d), _)| (*p, *d));
     out
-}
-
-fn io_kind_name(kind: IoKind) -> &'static str {
-    match kind {
-        IoKind::WallList => "WallList",
-        IoKind::WallSummary => "WallSummary",
-        IoKind::InputForm => "InputForm",
-        IoKind::WallView => "WallView",
-        IoKind::ResultsTable => "ResultsTable",
-        IoKind::Status => "Status",
-        IoKind::Empty => "Empty",
-    }
 }

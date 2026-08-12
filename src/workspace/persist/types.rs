@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const PERSIST_VERSION: u32 = 1;
+pub const PERSIST_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedSession {
@@ -18,8 +18,11 @@ pub struct PersistedWorkspace {
     pub focused_page: Option<u32>,
     pub page_tree: Option<PersistedPageTree>,
     pub page_overrides: PersistedOverrides,
-    /// Structural IO assignment: page → [(pod, IoKind as string)].
-    pub page_ios: Option<Vec<(u32, Vec<(u32, String)>)>>,
+    /// Structural page and pod template identifiers. Older saves fall back to seeds.
+    #[serde(default)]
+    pub page_templates: Option<Vec<(u32, String)>>,
+    #[serde(default)]
+    pub pod_templates: Option<Vec<(u32, u32, String)>>,
     pub next_page_id: Option<u32>,
     /// Placeholder stub labels: ((page, pod), [labels]).
     pub stub_ios: Option<Vec<((u32, u32), Vec<String>)>>,
@@ -49,9 +52,12 @@ pub struct PersistedExtent {
     pub weight: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PersistedOverrides {
     pub entries: Vec<PersistedOverrideEntry>,
+    /// Pod collapse overrides — sticky per size class.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub collapse_entries: Vec<PersistedCollapseEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,6 +65,13 @@ pub struct PersistedOverrideEntry {
     pub id: u64,
     pub class: PersistedSizeClass,
     pub fraction: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersistedCollapseEntry {
+    pub id: u64,
+    pub class: PersistedSizeClass,
+    pub collapsed: bool,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -70,19 +83,8 @@ pub enum PersistedSizeClass {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PersistedPageTree {
-    Leaf(PersistedPageNode),
-    Split {
-        direction: PersistedSeamDirection,
-        first: Box<PersistedPageTree>,
-        second: Box<PersistedPageTree>,
-    },
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum PersistedSeamDirection {
-    Vertical,
-    Horizontal,
+pub struct PersistedPageTree {
+    pub pages: Vec<PersistedPageNode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

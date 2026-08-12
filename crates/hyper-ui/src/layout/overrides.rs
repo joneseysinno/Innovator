@@ -11,6 +11,7 @@ use super::SizeClass;
 #[derive(Debug, Clone, Default)]
 pub struct Overrides {
     entries: HashMap<(ContainerId, SizeClass), f32>,
+    collapse: HashMap<(ContainerId, SizeClass), bool>,
 }
 
 impl Overrides {
@@ -30,6 +31,26 @@ impl Overrides {
         self.entries.remove(&(id, class))
     }
 
+    /// Sticky pod collapse for `(id, class)` — written only on explicit user toggle.
+    pub fn set_collapse(&mut self, id: ContainerId, class: SizeClass, collapsed: bool) {
+        self.collapse.insert((id, class), collapsed);
+    }
+
+    pub fn get_collapse(&self, id: ContainerId, class: SizeClass) -> Option<bool> {
+        self.collapse.get(&(id, class)).copied()
+    }
+
+    pub fn remove_collapse(&mut self, id: ContainerId, class: SizeClass) -> Option<bool> {
+        self.collapse.remove(&(id, class))
+    }
+
+    /// All collapse override entries — for persistence.
+    pub fn iter_collapse(&self) -> impl Iterator<Item = (ContainerId, SizeClass, bool)> + '_ {
+        self.collapse
+            .iter()
+            .map(|((id, class), collapsed)| (*id, *class, *collapsed))
+    }
+
     /// All override entries — for persistence.
     pub fn iter(&self) -> impl Iterator<Item = (ContainerId, SizeClass, f32)> + '_ {
         self.entries
@@ -37,13 +58,35 @@ impl Overrides {
             .map(|((id, class), fraction)| (*id, *class, *fraction))
     }
 
-    /// Rebuild from persisted records.
+    /// Rebuild fraction overrides from persisted records.
     pub fn from_entries(entries: impl IntoIterator<Item = (ContainerId, SizeClass, f32)>) -> Self {
         let mut out = Self::new();
         for (id, class, fraction) in entries {
             out.set(id, class, fraction);
         }
         out
+    }
+
+    /// Rebuild collapse overrides from persisted records.
+    pub fn from_collapse_entries(
+        entries: impl IntoIterator<Item = (ContainerId, SizeClass, bool)>,
+    ) -> Self {
+        let mut out = Self::new();
+        for (id, class, collapsed) in entries {
+            out.set_collapse(id, class, collapsed);
+        }
+        out
+    }
+
+    /// Merge collapse overrides into an existing [`Overrides`] (e.g. after fractions).
+    pub fn merge_collapse_entries(
+        mut self,
+        entries: impl IntoIterator<Item = (ContainerId, SizeClass, bool)>,
+    ) -> Self {
+        for (id, class, collapsed) in entries {
+            self.set_collapse(id, class, collapsed);
+        }
+        self
     }
 
     /// Effective preferred size for `id` on this axis: override fraction ×

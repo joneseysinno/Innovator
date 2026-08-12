@@ -3,14 +3,11 @@
 use crate::workspace::seed::{PageSeed, PodSeed};
 use hyper_ui::{
     default_icon_rail_config, PageHeaderConfig, PageHeaderSlots, PageId, PageNode, PageTree, Pod,
-    PodId, PodList, SeamDirection,
+    PodId, PodList,
 };
 
-/// Build a vertical [`PageTree`] from authored page seeds.
+/// Build an ordered [`PageTree`] from authored page seeds.
 pub fn page_tree_from_seeds(pages: &[PageSeed]) -> PageTree {
-    if pages.is_empty() {
-        return PageTree::Leaf(PageNode::empty(PageId(0)));
-    }
     let leaves: Vec<PageNode> = pages
         .iter()
         .enumerate()
@@ -57,18 +54,6 @@ pub fn pod_from_seed(id: PodId, seed: &PodSeed) -> Pod {
     pod
 }
 
-fn fold_vertical(mut leaves: Vec<PageNode>) -> PageTree {
-    match leaves.len() {
-        0 => PageTree::Leaf(PageNode::empty(PageId(0))),
-        1 => PageTree::Leaf(leaves.remove(0)),
-        _ => {
-            let first = leaves.remove(0);
-            let rest = fold_vertical(leaves);
-            PageTree::Split {
-                direction: SeamDirection::Vertical,
-                first: Box::new(PageTree::Leaf(first)),
-                second: Box::new(rest),
-            }
-        }
-    }
+fn fold_vertical(leaves: Vec<PageNode>) -> PageTree {
+    PageTree { pages: leaves }
 }

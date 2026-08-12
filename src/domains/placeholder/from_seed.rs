@@ -2,12 +2,16 @@
 
 use super::{PlaceholderWorkspace, StubIoMap};
 use crate::workspace::from_seed::page_tree_from_seeds;
+use crate::workspace::graph_containers::{dual_write_page_tree, insert_uiview};
 use crate::workspace::seed::{PageSeed, WorkspaceSeed};
 use hyper_ui::{PageId, PodId};
+use hypernode::Graph;
 
 impl PlaceholderWorkspace {
-    pub fn from_seed(seed: &WorkspaceSeed) -> Self {
-        let page_tree = page_tree_from_seeds(seed.pages);
+    pub fn from_seed(seed: &WorkspaceSeed, graph: &mut Graph) -> Self {
+        let mut page_tree = page_tree_from_seeds(seed.pages);
+        let node_id = insert_uiview(graph, seed.label);
+        dual_write_page_tree(graph, node_id, &mut page_tree);
         let stub_ios = stub_ios_from_pages(seed.pages);
         let focused_page = page_tree
             .leaves()
@@ -24,6 +28,7 @@ impl PlaceholderWorkspace {
             page_show_triggers: Default::default(),
             pod_collapse_triggers: Default::default(),
             icon_rail_triggers: Default::default(),
+            node_id,
         }
     }
 }

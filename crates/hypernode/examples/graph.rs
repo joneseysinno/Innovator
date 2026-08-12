@@ -43,6 +43,7 @@ fn main() {
         targets: vec![engine],
         curvature: 0.35,
         label: Some("RunAnalysis".into()),
+        props: BTreeMap::new(),
     });
 
     graph.insert_edge(HyperEdge {
@@ -52,6 +53,7 @@ fn main() {
         targets: vec![results],
         curvature: 0.35,
         label: Some("AnalysisComplete".into()),
+        props: BTreeMap::new(),
     });
 
     let hit = graph.nodes_in_bbox([9.0, 19.0], [13.0, 23.0]);

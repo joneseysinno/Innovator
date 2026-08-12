@@ -277,7 +277,10 @@ impl ApplicationHandler for DemoApp {
                             changed = true;
                         }
                         UiEvent::PodCollapse { id } => {
-                            self.pods.toggle(*id);
+                            self.pods.toggle(
+                                *id,
+                                hyper_ui::SizeClass::from_width(self.pod_area.size.x.max(1.0)),
+                            );
                             changed = true;
                         }
                         _ => {}

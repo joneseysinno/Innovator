@@ -2,7 +2,6 @@
 
 use super::action::AnalysisAction;
 use super::field_builder_draft::{BuilderFieldSlot, FieldBuilderDraft};
-use super::io_kind::IoKind;
 use super::kind::AnalysisKind;
 use crate::engine::AnalysisOutput;
 use crate::pages::analysis::input_form::form_density::FormDensity;
@@ -10,24 +9,23 @@ use crate::workspace::header::WorkspaceHeader;
 use crate::workspace::signal::WorkspaceSignal;
 use hyper_ui::{
     FocusPath, InMemoryWorldSpatial, Overrides, PageId, PageNode, PageTree, ParticleId, PodId,
-    SizeClass as LayoutSizeClass, Viewport,
+    SizeClass as LayoutSizeClass, TemplateId, Viewport,
 };
-use hypernode::{Graph, Node, NodeId};
+use hypernode::{Node, NodeId};
 use std::collections::HashMap;
 
 pub struct StructuralWorkspace {
     /// Action header — present for this workspace kind.
     pub header: Option<WorkspaceHeader>,
-    /// Page-level binary split tree.
+    /// Ordered page cache, mirrored by workspace Binding children.
     pub page_tree: PageTree,
-    /// IO assignment: PageId → Vec<(PodId, IoKind)>.
-    pub page_ios: HashMap<PageId, Vec<(PodId, IoKind)>>,
+    /// Page and pod template assignments mirrored onto UIView node props.
+    pub page_templates: HashMap<PageId, TemplateId>,
+    pub pod_templates: HashMap<(PageId, PodId), TemplateId>,
     /// Next PageId for split-created pages.
     pub next_page_id: u32,
     /// Which analysis type is active in this workspace.
     pub active_analysis: AnalysisKind,
-    /// In-memory wall HyperNodes for this analysis.
-    pub graph: Graph,
     pub active_wall: Option<NodeId>,
     /// Sink id → wall NodeId (Navigation WallListIO).
     pub wall_sinks: HashMap<ParticleId, NodeId>,
@@ -76,6 +74,8 @@ pub struct StructuralWorkspace {
     pub focused_page: PageId,
     /// Analysis page header status source (live ratios).
     pub analysis_header_status_id: Option<ParticleId>,
+    /// Graph UIView identity for this workspace container.
+    pub node_id: NodeId,
 }
 
 impl StructuralWorkspace {
@@ -139,8 +139,14 @@ impl StructuralWorkspace {
         // `ratio` is the fraction of the two-page split_area for the left page.
         // Convert to fractions of the full arrangement axis using current widths.
         let rects = self.page_tree.leaf_rects(pages_area);
-        let left_r = rects.iter().find(|(id, _)| *id == left).map(|(_, r)| r.size.x);
-        let right_r = rects.iter().find(|(id, _)| *id == right).map(|(_, r)| r.size.x);
+        let left_r = rects
+            .iter()
+            .find(|(id, _)| *id == left)
+            .map(|(_, r)| r.size.x);
+        let right_r = rects
+            .iter()
+            .find(|(id, _)| *id == right)
+            .map(|(_, r)| r.size.x);
         let (Some(lw), Some(rw)) = (left_r, right_r) else {
             return;
         };
@@ -172,19 +178,18 @@ impl StructuralWorkspace {
             .remove(PageNode::container_id(shown[seam_index + 1]), class);
     }
 
-    /// Resolve a pod rect for an IoKind across the page tree.
-    pub fn io_rect(
+    /// Resolve a pod rect by its template identifier across the page tree.
+    pub fn pod_rect(
         &self,
         pages_area: hyper_ui::Rect,
-        kind: IoKind,
+        template: TemplateId,
     ) -> Option<hyper_ui::Rect> {
         for (page_id, page_rect) in self.page_tree.leaf_rects(pages_area) {
             let page = self.page_tree.find(page_id)?;
             let content = page.content_rect(page_rect);
-            let ios = self.page_ios.get(&page_id)?;
             let leaves = page.pods.layout_rects(content);
-            for (pod_id, io) in ios {
-                if *io == kind {
+            for ((template_page, pod_id), pod_template) in &self.pod_templates {
+                if *template_page == page_id && *pod_template == template {
                     if let Some((_, r)) = leaves.iter().find(|(id, _)| *id == *pod_id) {
                         return Some(*r);
                     }

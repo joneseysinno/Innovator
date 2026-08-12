@@ -4,7 +4,7 @@ use crate::workspace::signal::WorkspaceSignal;
 use hyper_ui::particles::{
     Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle,
 };
-use hypernode::{Graph, NodeId};
+use hypernode::{Graph, NodeId, SpaceClass};
 use std::collections::HashMap;
 
 /// Build the WallListIO pod from the current wall graph.
@@ -13,7 +13,11 @@ pub fn build_wall_list(graph: &Graph, active_wall: Option<NodeId>) -> WallListIO
 
     let mut sinks = HashMap::new();
     let mut rows = Vec::new();
-    for node in graph.nodes.values() {
+    for node in graph
+        .nodes
+        .values()
+        .filter(|n| n.space_class == SpaceClass::Entity)
+    {
         let (row, sink_id) = build_row(node, active_wall);
         sinks.insert(sink_id, node.id);
         rows.push(row);

@@ -1,51 +1,72 @@
-//! Structural page IO assignments and empty-page helper.
-//!
-//! Page/pod *construction* comes from [`crate::workspace::seed::STRUCTURAL`] via
-//! [`crate::workspace::from_seed`]. This module only maps seed IO labels → [`IoKind`]
-//! and provides the empty-page assignment used after a split.
+//! Structural page/pod template assignments derived from authored seeds.
 
-use super::io_kind::IoKind;
+use super::template_ids::*;
 use crate::workspace::seed::{PageSeed, STRUCTURAL};
-use hyper_ui::{PageId, PodId};
+use hyper_ui::{PageId, PodId, TemplateId};
 use std::collections::HashMap;
 
-/// Build `(page_id → [(pod_id, IoKind)])` from Structural page seeds.
-pub fn page_ios_from_seeds(pages: &[PageSeed]) -> HashMap<PageId, Vec<(PodId, IoKind)>> {
-    let mut map = HashMap::new();
+pub fn page_templates_from_seeds(pages: &[PageSeed]) -> HashMap<PageId, TemplateId> {
+    pages
+        .iter()
+        .enumerate()
+        .map(|(i, page)| (PageId(i as u32), page_template_from_label(page.label)))
+        .collect()
+}
+
+pub fn pod_templates_from_seeds(pages: &[PageSeed]) -> HashMap<(PageId, PodId), TemplateId> {
+    let mut templates = HashMap::new();
     for (i, page) in pages.iter().enumerate() {
         let page_id = PageId(i as u32);
-        let mut ios = Vec::with_capacity(page.pods.len());
         for (j, pod) in page.pods.iter().enumerate() {
-            let kind = pod
-                .ios
-                .first()
-                .map(|io| io_kind_from_label(io.label))
-                .unwrap_or(IoKind::Empty);
-            ios.push((PodId(j as u32), kind));
+            templates.insert(
+                (page_id, PodId(j as u32)),
+                pod_template_from_label(pod.label),
+            );
         }
-        map.insert(page_id, ios);
     }
-    map
+    templates
 }
 
-/// Initial Structural IO map — mirrors [`STRUCTURAL`] pages.
-pub fn initial_page_ios() -> HashMap<PageId, Vec<(PodId, IoKind)>> {
-    page_ios_from_seeds(STRUCTURAL.pages)
+pub fn initial_page_templates() -> HashMap<PageId, TemplateId> {
+    page_templates_from_seeds(STRUCTURAL.pages)
 }
 
-/// Empty page assignment used after a split.
-pub fn empty_page_ios() -> Vec<(PodId, IoKind)> {
-    vec![(PodId(0), IoKind::Empty)]
+pub fn initial_pod_templates() -> HashMap<(PageId, PodId), TemplateId> {
+    pod_templates_from_seeds(STRUCTURAL.pages)
 }
 
-fn io_kind_from_label(label: &str) -> IoKind {
+pub fn template_from_str(id: &str) -> TemplateId {
+    match id {
+        "navigation" => NAVIGATION,
+        "analysis" => ANALYSIS,
+        "results" => RESULTS,
+        "wall_list" => WALL_LIST,
+        "wall_summary" => WALL_SUMMARY,
+        "input_form" => INPUT_FORM,
+        "wall_view" => WALL_VIEW,
+        "results_table" => RESULTS_TABLE,
+        "status" => STATUS,
+        _ => GENERIC,
+    }
+}
+
+fn page_template_from_label(label: &str) -> TemplateId {
     match label {
-        "WallList" => IoKind::WallList,
-        "WallSummary" => IoKind::WallSummary,
-        "InputForm" => IoKind::InputForm,
-        "WallView" => IoKind::WallView,
-        "ResultsTable" => IoKind::ResultsTable,
-        "Status" => IoKind::Status,
-        _ => IoKind::Empty,
+        "Navigation" => NAVIGATION,
+        "Analysis" => ANALYSIS,
+        "Results" => RESULTS,
+        _ => GENERIC,
+    }
+}
+
+fn pod_template_from_label(label: &str) -> TemplateId {
+    match label {
+        "Wall List" => WALL_LIST,
+        "Summary" => WALL_SUMMARY,
+        "Input" => INPUT_FORM,
+        "Wall View" => WALL_VIEW,
+        "Results" => RESULTS_TABLE,
+        "Status" => STATUS,
+        _ => GENERIC,
     }
 }

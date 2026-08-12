@@ -1,4 +1,8 @@
 //! Pure resolve pass — demands → visibility + rects.
+//!
+//! Component-level reflow (stack vs row, icon-only vs labeled) uses the same
+//! pure resolve pattern; no override tier yet — nothing to undo at that
+//! granularity.
 
 mod assign_rects;
 mod budget;

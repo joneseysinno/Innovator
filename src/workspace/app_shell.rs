@@ -32,6 +32,7 @@ use crate::workspace::workspace::Workspace;
 use hyper_ui::{
     FocusPath, HyperRenderer, InputClass, ParticleId, Rect, ResolveReport, SizeClass,
 };
+use hypernode::Graph;
 use infinite_db::InfiniteDb;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -43,6 +44,9 @@ pub struct AppShell {
     pub(crate) renderer: Option<HyperRenderer>,
     pub db: InfiniteDb,
     pub session: Session,
+    /// Composed, permission-scoped graph view (today: everything loaded).
+    /// Access only via [`Self::composed_view`] / [`Self::composed_view_mut`].
+    graph: Graph,
     pub workspaces: Vec<Workspace>,
     /// Workspace → page → pod focus chain. Pointer-down only; never hover.
     pub focus: FocusPath,
@@ -66,4 +70,19 @@ pub struct AppShell {
     pub preview: PreviewPreset,
     pub overlay_open: bool,
     pub last_report: ResolveReport,
+}
+
+impl AppShell {
+    /// Current composed view of the graph.
+    ///
+    /// Today returns everything loaded. Later: Grant-filtered union of
+    /// reachable scopes — same signature, additive filtering underneath.
+    pub fn composed_view(&self) -> &Graph {
+        &self.graph
+    }
+
+    /// Mutable composed view — see [`Self::composed_view`].
+    pub fn composed_view_mut(&mut self) -> &mut Graph {
+        &mut self.graph
+    }
 }

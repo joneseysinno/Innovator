@@ -12,7 +12,9 @@ pub struct WorkspaceShell {
 impl WorkspaceShell {
     pub fn new(area: Rect) -> Self {
         Self {
-            pages: PageTree::Leaf(crate::page::PageNode::empty(PageId(0))),
+            pages: PageTree {
+                pages: vec![crate::page::PageNode::empty(PageId(0))],
+            },
             area,
             next_page_id: 1,
         }

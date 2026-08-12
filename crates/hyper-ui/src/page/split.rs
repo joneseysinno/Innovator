@@ -3,33 +3,21 @@ use crate::seam::SeamDirection;
 use super::{PageId, PageNode, PageSide, PageTree};
 
 impl PageTree {
-    /// Split the leaf with `page_id` into the original page + a new empty sibling.
+    /// Insert an empty sibling immediately after `page_id`.
     ///
     /// Returns the new page's id, or `None` if `page_id` was not found.
     pub fn split_page(
         &mut self,
         page_id: PageId,
-        direction: SeamDirection,
+        _direction: SeamDirection,
         new_id: PageId,
     ) -> Option<PageId> {
-        match self {
-            Self::Leaf(page) if page.id == page_id => {
-                let original = std::mem::replace(page, PageNode::empty(PageId(0)));
-                *self = PageTree::Split {
-                    direction,
-                    first: Box::new(PageTree::Leaf(original)),
-                    second: Box::new(PageTree::Leaf(PageNode::empty(new_id))),
-                };
-                Some(new_id)
-            }
-            Self::Leaf(_) => None,
-            Self::Split { first, second, .. } => first
-                .split_page(page_id, direction, new_id)
-                .or_else(|| second.split_page(page_id, direction, new_id)),
-        }
+        let index = self.pages.iter().position(|page| page.id == page_id)?;
+        self.pages.insert(index + 1, PageNode::empty(new_id));
+        Some(new_id)
     }
 
-    /// Split the leaf on `side` of the Split identified by pre-order `seam_index`.
+    /// Split the page on `side` of the seam between adjacent shown pages.
     pub fn split_at_seam(
         &mut self,
         seam_index: u32,
@@ -37,43 +25,17 @@ impl PageTree {
         direction: SeamDirection,
         new_id: PageId,
     ) -> Option<PageId> {
-        let mut idx = 0u32;
-        self.split_at_seam_inner(seam_index, side, direction, new_id, &mut idx)
-    }
-
-    fn split_at_seam_inner(
-        &mut self,
-        target: u32,
-        side: PageSide,
-        direction: SeamDirection,
-        new_id: PageId,
-        idx: &mut u32,
-    ) -> Option<PageId> {
-        match self {
-            Self::Leaf(_) => None,
-            Self::Split { first, second, .. } => {
-                if *idx == target {
-                    let child = match side {
-                        PageSide::First => first.as_mut(),
-                        PageSide::Second => second.as_mut(),
-                    };
-                    return match child {
-                        PageTree::Leaf(page) => {
-                            let page_id = page.id;
-                            child.split_page(page_id, direction, new_id)
-                        }
-                        PageTree::Split { .. } => {
-                            // Split the first leaf under this child.
-                            let page_id = child.leaves().first().map(|p| p.id)?;
-                            child.split_page(page_id, direction, new_id)
-                        }
-                    };
-                }
-                *idx += 1;
-                first
-                    .split_at_seam_inner(target, side, direction, new_id, idx)
-                    .or_else(|| second.split_at_seam_inner(target, side, direction, new_id, idx))
-            }
-        }
+        let shown: Vec<_> = self
+            .pages
+            .iter()
+            .filter(|page| page.state.resolved() == crate::container::Visibility::Shown)
+            .map(|page| page.id)
+            .collect();
+        let first = *shown.get(seam_index as usize)?;
+        let page_id = match side {
+            PageSide::First => first,
+            PageSide::Second => *shown.get(seam_index as usize + 1)?,
+        };
+        self.split_page(page_id, direction, new_id)
     }
 }

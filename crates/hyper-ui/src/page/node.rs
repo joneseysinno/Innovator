@@ -1,5 +1,6 @@
 use crate::container::{ContainerId, ContainerState, Extent, Visibility};
 use crate::pod::PodList;
+use hypernode::NodeId;
 
 use super::{IconRailConfig, PageHeaderConfig, PageId};
 
@@ -7,6 +8,8 @@ use super::{IconRailConfig, PageHeaderConfig, PageId};
 #[derive(Debug, Clone)]
 pub struct PageNode {
     pub id: PageId,
+    /// Graph identity (`SpaceClass::UIView`). `NodeId(0)` until dual-written.
+    pub node_id: NodeId,
     /// Shared container primitives.
     pub state: ContainerState,
     /// Ordered pod stack within this page.
@@ -39,6 +42,7 @@ impl PageNode {
     pub fn new(id: PageId, pods: PodList) -> Self {
         Self {
             id,
+            node_id: NodeId(0),
             state: Self::initial_state(id, "Page", "", Extent::preferred(280.0, 600.0)),
             pods,
             header: None,
