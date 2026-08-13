@@ -12,6 +12,8 @@ use std::collections::BTreeMap;
 const ROLE_PROP: &str = "role";
 const ACTIVE_WALL_ROLE: &str = "active_wall";
 const RESULTS_ROLE: &str = "results";
+const LISTED_WALL_ROLE: &str = "listed_wall";
+const ORDER_PROP: &str = "order";
 
 /// Locate a pod UIView by its assigned template within this workspace.
 pub fn pod_node_id(workspace: &StructuralWorkspace, template: TemplateId) -> Option<NodeId> {
@@ -23,11 +25,14 @@ pub fn pod_node_id(workspace: &StructuralWorkspace, template: TemplateId) -> Opt
     })
 }
 
-/// Refresh Wall List's streams so every Entity wall is available to the pod.
+/// Refresh Wall List: one multi-target Stream + Binding containment for each wall.
 pub fn wire_wall_list_streams(graph: &mut Graph, wall_list_pod: NodeId) {
-    graph
-        .edges
-        .retain(|_, edge| !(edge.kind == EdgeKind::Stream && edge.sources == [wall_list_pod]));
+    graph.edges.retain(|_, edge| {
+        !(edge.kind == EdgeKind::Stream && edge.sources == [wall_list_pod])
+            && !(edge.kind == EdgeKind::Binding
+                && edge.sources == [wall_list_pod]
+                && edge.props.get(ROLE_PROP) == Some(&PropValue::Text(LISTED_WALL_ROLE.into())))
+    });
 
     let walls: Vec<_> = graph
         .nodes
@@ -35,14 +40,31 @@ pub fn wire_wall_list_streams(graph: &mut Graph, wall_list_pod: NodeId) {
         .filter(|node| node.space_class == SpaceClass::Entity)
         .map(|node| node.id)
         .collect();
-    for wall in walls {
+
+    if !walls.is_empty() {
+        // One hyperedge: Wall List streams to every wall.
         insert_edge(
             graph,
             EdgeKind::Stream,
             vec![wall_list_pod],
-            vec![wall],
+            walls.clone(),
             None,
             BTreeMap::new(),
+        );
+    }
+
+    // Bind domain entities into the container tree under the Wall List pod.
+    for (order, wall) in walls.into_iter().enumerate() {
+        insert_edge(
+            graph,
+            EdgeKind::Binding,
+            vec![wall_list_pod],
+            vec![wall],
+            None,
+            BTreeMap::from([
+                (ROLE_PROP.into(), PropValue::Text(LISTED_WALL_ROLE.into())),
+                (ORDER_PROP.into(), PropValue::I64(order as i64)),
+            ]),
         );
     }
 }
@@ -202,5 +224,49 @@ pub fn wire_workspace(graph: &mut Graph, workspace: &StructuralWorkspace) {
     }
     if let (Some(input), Some(wall)) = (pod_node_id(workspace, INPUT_FORM), workspace.active_wall) {
         wire_active_wall_binding(graph, input, wall);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::workspace::graph_containers::{binding_children, insert_uiview};
+
+    #[test]
+    fn wall_list_stream_is_multi_target_hyperedge() {
+        let mut graph = Graph::new();
+        let pod = insert_uiview(&mut graph, "Wall List");
+        let w1 = graph.insert_node(Node {
+            id: NodeId(0),
+            space_class: SpaceClass::Entity,
+            label: "Wall A".into(),
+            world_pos: [0.0, 0.0],
+            props: BTreeMap::new(),
+        });
+        let w2 = graph.insert_node(Node {
+            id: NodeId(0),
+            space_class: SpaceClass::Entity,
+            label: "Wall B".into(),
+            world_pos: [1.0, 0.0],
+            props: BTreeMap::new(),
+        });
+
+        wire_wall_list_streams(&mut graph, pod);
+
+        let streams: Vec<_> = graph
+            .edges
+            .values()
+            .filter(|e| e.kind == EdgeKind::Stream && e.sources == [pod])
+            .collect();
+        assert_eq!(streams.len(), 1, "expected a single Wall List Stream");
+        assert!(
+            streams[0].targets.len() > 1,
+            "expected multi-target Stream, got {:?}",
+            streams[0].targets
+        );
+        assert_eq!(streams[0].targets, vec![w1, w2]);
+
+        let kids = binding_children(&graph, pod);
+        assert!(kids.contains(&w1) && kids.contains(&w2));
     }
 }

@@ -1,5 +1,4 @@
 use super::workspace::HomeWorkspace;
-use crate::workspace::app_signal::AppSignal;
 use crate::workspace::seed;
 use hyper_ui::particles::{
     Particle, SourceParticle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle,
@@ -8,7 +7,7 @@ use std::collections::HashMap;
 
 /// Build the Home dashboard — one OpenWorkspace trigger per launchable seed.
 pub fn build_content(ws: &mut HomeWorkspace) -> Particle {
-    let mut actions = HashMap::new();
+    let mut launcher_triggers = HashMap::new();
 
     let title = SourceParticle::new("Innovator").with_weight(500);
     let subtitle = SourceParticle::secondary("Home — open a workspace (visibility write)");
@@ -20,7 +19,7 @@ pub fn build_content(ws: &mut HomeWorkspace) -> Particle {
         } else {
             TriggerParticle::new(seed.label)
         };
-        actions.insert(trigger.id, AppSignal::OpenWorkspace(seed.open_id));
+        launcher_triggers.insert(trigger.id, seed.open_id);
         buttons.push(Particle::Trigger(trigger));
     }
 
@@ -40,7 +39,7 @@ pub fn build_content(ws: &mut HomeWorkspace) -> Particle {
     )
     .with_gap(14.0);
 
-    ws.actions = actions;
+    ws.launcher_triggers = launcher_triggers;
 
     // Wrap in a View so the root column stretches the dashboard to fill the full
     // workspace area (matching Structural / Placeholder). A bare Surface only

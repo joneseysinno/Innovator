@@ -25,7 +25,15 @@ pub fn capture_session(shell: &AppShell) -> PersistedSession {
 fn capture_workspace(ws: &Workspace) -> PersistedWorkspace {
     let (page_tree, page_overrides, focused_page, page_templates, pod_templates, next_page_id, stub_ios) =
         match &ws.body {
-            WorkspaceBody::Home(_) => (None, PersistedOverrides::default(), None, None, None, None, None),
+            WorkspaceBody::Home(h) => (
+                Some(capture_page_tree(&h.page_tree)),
+                capture_overrides(&h.page_overrides),
+                Some(h.focused_page.0),
+                None,
+                None,
+                None,
+                None,
+            ),
             WorkspaceBody::Structural(s) => (
                 Some(capture_page_tree(&s.page_tree)),
                 capture_overrides(&s.page_overrides),
@@ -51,7 +59,8 @@ fn capture_workspace(ws: &Workspace) -> PersistedWorkspace {
                 None,
                 None,
                 None,
-                Some(capture_stub_ios(&p.stub_ios)),
+                // Components live in the graph; stub_ios no longer persisted.
+                None,
             ),
         };
 
@@ -182,16 +191,5 @@ fn capture_pod_templates(
         .map(|((page, pod), template)| (page.0, pod.0, template.as_str().to_string()))
         .collect();
     out.sort_by_key(|(page, pod, _)| (*page, *pod));
-    out
-}
-
-fn capture_stub_ios(
-    map: &crate::domains::placeholder::StubIoMap,
-) -> Vec<((u32, u32), Vec<String>)> {
-    let mut out: Vec<_> = map
-        .iter()
-        .map(|((page, pod), labels)| ((page.0, pod.0), labels.clone()))
-        .collect();
-    out.sort_by_key(|((p, d), _)| (*p, *d));
     out
 }

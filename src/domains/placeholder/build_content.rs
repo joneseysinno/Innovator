@@ -2,6 +2,7 @@
 
 use super::stub_io::build_stub_stack;
 use super::PlaceholderWorkspace;
+use crate::workspace::graph_containers::component_labels;
 use hyper_ui::particles::{
     Particle, StackParticle, SurfaceParticle, TriggerParticle, ViewParticle, ViewportParticle,
 };
@@ -9,8 +10,9 @@ use hyper_ui::{
     build_pod_icon_rail, effective_icon_rail, wrap_pod_column, IconRailSide, PageId, PageNode,
     Visibility,
 };
+use hypernode::Graph;
 
-pub fn build_content(ws: &mut PlaceholderWorkspace) -> Particle {
+pub fn build_content(ws: &mut PlaceholderWorkspace, graph: &Graph) -> Particle {
     ws.page_show_triggers.clear();
     ws.pod_collapse_triggers.clear();
     ws.icon_rail_triggers.clear();
@@ -27,7 +29,7 @@ pub fn build_content(ws: &mut PlaceholderWorkspace) -> Particle {
     let mut children = Vec::with_capacity(shown_ids.len());
     for page_id in &shown_ids {
         let page = ws.page_tree.find(*page_id).cloned().expect("page leaf");
-        children.push(build_one_page(ws, &page));
+        children.push(build_one_page(ws, graph, &page));
     }
 
     let pages_row = Particle::Stack(StackParticle::row(children).with_gap(0.0));
@@ -76,15 +78,12 @@ fn build_page_rail(
     )
 }
 
-fn build_one_page(ws: &mut PlaceholderWorkspace, page: &PageNode) -> Particle {
+fn build_one_page(ws: &mut PlaceholderWorkspace, graph: &Graph, page: &PageNode) -> Particle {
     let mut bodies = Vec::new();
     for pod in &page.pods.pods {
-        let labels = ws
-            .stub_ios
-            .get(&(page.id, pod.id))
-            .map(|v| v.iter().map(|s| s.as_str()).collect::<Vec<_>>())
-            .unwrap_or_default();
-        bodies.push(build_stub_stack(&labels, pod));
+        let labels = component_labels(graph, pod.node_id);
+        let label_refs: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
+        bodies.push(build_stub_stack(&label_refs, pod));
     }
 
     let (stack, triggers) = wrap_pod_column(&page.pods.pods, bodies);

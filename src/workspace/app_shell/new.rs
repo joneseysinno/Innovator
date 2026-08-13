@@ -3,7 +3,11 @@ use crate::auth::session::Session;
 use crate::devtools::PreviewPreset;
 use crate::results::ensure_results_space;
 use crate::walls::{ensure_walls_space, load_walls};
+use crate::workspace::graph_containers::{
+    bind_workspaces_to_root, insert_root, wire_home_nav_signals,
+};
 use crate::workspace::persist::{self, LAYOUT_PATH};
+use crate::workspace::seed;
 use crate::workspace::tab_strip::build_tab_strip;
 use crate::workspace::workspace::Workspace;
 use hyper_ui::container::Visibility;
@@ -26,6 +30,9 @@ impl AppShell {
         let mut graph = Graph::new();
         load_walls(&mut db, &mut graph);
 
+        // Root before any workspace so every Binding forest hangs from depth 0.
+        let root_id = insert_root(&mut graph);
+
         // Restore from layout.json when present; otherwise first-run seeds.
         let (workspaces, next_workspace_id) = match persist::load_layout(LAYOUT_PATH) {
             Some(session) => persist::restore_workspaces(&session, &mut db, &mut graph),
@@ -35,6 +42,26 @@ impl AppShell {
                 (ws, next)
             }
         };
+        let ws_nodes: Vec<_> = workspaces.iter().map(|w| w.node_id).collect();
+        bind_workspaces_to_root(&mut graph, root_id, &ws_nodes);
+
+        if let Some(home) = workspaces.iter().find(|w| w.open_id == "home") {
+            // LAUNCHABLE + Graph (F11) — every OpenWorkspace target needs a Signal.
+            let nav_seeds: Vec<&seed::WorkspaceSeed> = seed::LAUNCHABLE
+                .iter()
+                .chain(std::iter::once(&seed::DEVTOOLS_GRAPH))
+                .collect();
+            let targets: Vec<_> = nav_seeds
+                .iter()
+                .filter_map(|s| {
+                    workspaces
+                        .iter()
+                        .find(|w| w.open_id == s.open_id)
+                        .map(|w| (w.node_id, s.open_id))
+                })
+                .collect();
+            wire_home_nav_signals(&mut graph, home.node_id, &targets);
+        }
 
         let active = workspaces
             .iter()
@@ -47,6 +74,8 @@ impl AppShell {
             focus_chain.push(PageNode::container_id(s.focused_page));
         } else if let Some(p) = active.placeholder() {
             focus_chain.push(PageNode::container_id(p.focused_page));
+        } else if let Some(h) = active.home_ws() {
+            focus_chain.push(PageNode::container_id(h.focused_page));
         }
         let focus = FocusPath::new(focus_chain);
         let tabs: Vec<_> = workspaces.iter().map(|w| w.tab()).collect();
@@ -58,6 +87,7 @@ impl AppShell {
             db,
             session,
             graph,
+            root_id,
             workspaces,
             focus,
             next_workspace_id,

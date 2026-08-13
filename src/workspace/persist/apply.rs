@@ -2,9 +2,11 @@
 
 use super::types::*;
 use crate::domains::graph_view::GraphViewWorkspace;
-use crate::domains::placeholder::{PlaceholderWorkspace, StubIoMap};
+use crate::domains::placeholder::PlaceholderWorkspace;
 use crate::domains::structural::{templates::template_from_str, StructuralWorkspace};
-use crate::workspace::graph_containers::{dual_write_page_tree, insert_uiview};
+use crate::workspace::graph_containers::{
+    dual_write_page_tree, write_components_from_page_seeds, write_pod_components,
+};
 use crate::workspace::seed;
 use crate::workspace::workspace::{Workspace, WorkspaceBody};
 use hyper_ui::container::{ContainerId, ContainerState, Extent, Visibility};
@@ -29,7 +31,7 @@ fn restore_workspace(pw: &PersistedWorkspace, db: &mut InfiniteDb, graph: &mut G
     let open_id = intern_open_id(&pw.open_id);
 
     let mut body = match open_id {
-        "home" => WorkspaceBody::Home(crate::domains::home::HomeWorkspace::new()),
+        "home" => WorkspaceBody::Home(crate::domains::home::HomeWorkspace::from_seed(graph)),
         "structural_analysis" => WorkspaceBody::Structural(StructuralWorkspace::new(db, graph)),
         "devtools_graph" => {
             let seed = seed::ALL
@@ -54,6 +56,7 @@ fn restore_workspace(pw: &PersistedWorkspace, db: &mut InfiniteDb, graph: &mut G
                 s.page_tree = restore_page_tree(tree);
                 dual_write_page_tree(graph, s.node_id, &mut s.page_tree);
             }
+            write_components_from_page_seeds(graph, &s.page_tree, seed::STRUCTURAL.pages);
             s.page_overrides = restore_overrides(&pw.page_overrides);
             if let Some(fp) = pw.focused_page {
                 s.focused_page = PageId(fp);
@@ -85,33 +88,62 @@ fn restore_workspace(pw: &PersistedWorkspace, db: &mut InfiniteDb, graph: &mut G
             }
         }
         WorkspaceBody::GraphView(g) => {
+            let seed = seed::ALL
+                .iter()
+                .find(|s| s.open_id == open_id)
+                .unwrap_or(&seed::DEVTOOLS_GRAPH);
             if let Some(tree) = &pw.page_tree {
                 g.page_tree = restore_page_tree(tree);
                 dual_write_page_tree(graph, g.node_id, &mut g.page_tree);
             }
+            write_components_from_page_seeds(graph, &g.page_tree, seed.pages);
             g.page_overrides = restore_overrides(&pw.page_overrides);
             if let Some(fp) = pw.focused_page {
                 g.focused_page = PageId(fp);
             }
         }
         WorkspaceBody::Placeholder(p) => {
+            let seed = seed::ALL
+                .iter()
+                .find(|s| s.open_id == open_id)
+                .unwrap_or(&seed::PROJECT_MANAGEMENT);
             if let Some(tree) = &pw.page_tree {
                 p.page_tree = restore_page_tree(tree);
                 dual_write_page_tree(graph, p.node_id, &mut p.page_tree);
+            }
+            // Prefer legacy stub_ios labels when present; else rebuild from seed.
+            if let Some(stubs) = &pw.stub_ios {
+                for ((page_id, pod_id), labels) in stubs {
+                    if let Some(page) = p.page_tree.pages.iter().find(|pg| pg.id.0 == *page_id) {
+                        if let Some(pod) = page.pods.pods.iter().find(|pd| pd.id.0 == *pod_id) {
+                            let refs: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
+                            write_pod_components(graph, pod.node_id, &refs);
+                        }
+                    }
+                }
+            } else {
+                write_components_from_page_seeds(graph, &p.page_tree, seed.pages);
             }
             p.page_overrides = restore_overrides(&pw.page_overrides);
             if let Some(fp) = pw.focused_page {
                 p.focused_page = PageId(fp);
             }
-            if let Some(stubs) = &pw.stub_ios {
-                p.stub_ios = restore_stub_ios(stubs);
+        }
+        WorkspaceBody::Home(h) => {
+            if let Some(tree) = &pw.page_tree {
+                h.page_tree = restore_page_tree(tree);
+                dual_write_page_tree(graph, h.node_id, &mut h.page_tree);
+            }
+            write_components_from_page_seeds(graph, &h.page_tree, seed::HOME.pages);
+            h.page_overrides = restore_overrides(&pw.page_overrides);
+            if let Some(fp) = pw.focused_page {
+                h.focused_page = PageId(fp);
             }
         }
-        WorkspaceBody::Home(_) => {}
     }
 
     let node_id = match &body {
-        WorkspaceBody::Home(_) => insert_uiview(graph, pw.state.label.clone()),
+        WorkspaceBody::Home(h) => h.node_id,
         WorkspaceBody::Structural(s) => s.node_id,
         WorkspaceBody::GraphView(g) => g.node_id,
         WorkspaceBody::Placeholder(p) => p.node_id,
@@ -250,12 +282,5 @@ fn restore_pod_templates(
     entries
         .iter()
         .map(|(page, pod, template)| ((PageId(*page), PodId(*pod)), template_from_str(template)))
-        .collect()
-}
-
-fn restore_stub_ios(entries: &[((u32, u32), Vec<String>)]) -> StubIoMap {
-    entries
-        .iter()
-        .map(|((page, pod), labels)| ((PageId(*page), PodId(*pod)), labels.clone()))
         .collect()
 }

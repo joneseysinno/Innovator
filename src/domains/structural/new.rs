@@ -9,6 +9,7 @@ use crate::results::{load_results_for_wall, parse_checks};
 use crate::workspace::from_seed::page_tree_from_seeds;
 use crate::workspace::graph_containers::{
     dual_write_page_tree, entity_count, first_entity_id, insert_uiview, is_entity,
+    write_components_from_page_seeds,
 };
 use crate::workspace::header::build_header;
 use crate::workspace::seed;
@@ -31,6 +32,7 @@ impl StructuralWorkspace {
         let mut page_tree = page_tree_from_seeds(seed::STRUCTURAL.pages);
         let node_id = insert_uiview(graph, seed::STRUCTURAL.label);
         dual_write_page_tree(graph, node_id, &mut page_tree);
+        write_components_from_page_seeds(graph, &page_tree, seed::STRUCTURAL.pages);
         let page_templates = initial_page_templates();
         let pod_templates = initial_pod_templates();
         for page in &page_tree.pages {

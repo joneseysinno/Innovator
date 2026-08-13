@@ -34,7 +34,7 @@ use crate::workspace::workspace::Workspace;
 use hyper_ui::{
     FocusPath, HyperRenderer, InputClass, ParticleId, Rect, ResolveReport, SizeClass,
 };
-use hypernode::Graph;
+use hypernode::{Graph, NodeId};
 use infinite_db::InfiniteDb;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -49,6 +49,8 @@ pub struct AppShell {
     /// Composed, permission-scoped graph view (today: everything loaded).
     /// Access only via [`Self::composed_view`] / [`Self::composed_view_mut`].
     graph: Graph,
+    /// Binding depth-0 UIView; parent of every workspace node.
+    pub root_id: NodeId,
     pub workspaces: Vec<Workspace>,
     /// Workspace → page → pod focus chain. Pointer-down only; never hover.
     pub focus: FocusPath,

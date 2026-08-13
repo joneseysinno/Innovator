@@ -4,7 +4,7 @@ use crate::domains::graph_view::GraphViewWorkspace;
 use crate::domains::home::HomeWorkspace;
 use crate::domains::placeholder::PlaceholderWorkspace;
 use crate::domains::structural::StructuralWorkspace;
-use crate::workspace::graph_containers::{count_page_tree_containers, insert_uiview};
+use crate::workspace::graph_containers::count_page_tree_containers;
 use crate::workspace::header::WorkspaceHeader;
 use crate::workspace::seed::{self, WorkspaceSeed};
 use crate::workspace::tab::WorkspaceTab;
@@ -52,8 +52,9 @@ impl Workspace {
         let state = container_state(id, seed.label, seed.icon, seed.intent);
         let (body, node_id) = match seed.open_id {
             "home" => {
-                let node_id = insert_uiview(graph, seed.label);
-                (WorkspaceBody::Home(HomeWorkspace::new()), node_id)
+                let ws = HomeWorkspace::from_seed(graph);
+                let node_id = ws.node_id;
+                (WorkspaceBody::Home(ws), node_id)
             }
             "structural_analysis" => {
                 let ws = StructuralWorkspace::new(db, graph);
@@ -127,19 +128,19 @@ impl Workspace {
 
     pub fn page_tree(&self) -> Option<&PageTree> {
         match &self.body {
+            WorkspaceBody::Home(ws) => Some(&ws.page_tree),
             WorkspaceBody::Structural(ws) => Some(&ws.page_tree),
             WorkspaceBody::GraphView(ws) => Some(&ws.page_tree),
             WorkspaceBody::Placeholder(ws) => Some(&ws.page_tree),
-            _ => None,
         }
     }
 
     pub fn page_tree_mut(&mut self) -> Option<&mut PageTree> {
         match &mut self.body {
+            WorkspaceBody::Home(ws) => Some(&mut ws.page_tree),
             WorkspaceBody::Structural(ws) => Some(&mut ws.page_tree),
             WorkspaceBody::GraphView(ws) => Some(&mut ws.page_tree),
             WorkspaceBody::Placeholder(ws) => Some(&mut ws.page_tree),
-            _ => None,
         }
     }
 
@@ -150,36 +151,26 @@ impl Workspace {
                 crate::domains::structural::build_pages::build_pages(ws, graph)
             }
             WorkspaceBody::GraphView(ws) => {
-                // Prefer `build_graph_workspace_content` (passes Structural scope root).
+                // Prefer `build_graph_workspace_content` (passes app root as scope).
                 let active = Some(ws.node_id);
                 crate::domains::graph_view::build_content::build_content(ws, graph, active)
             }
             WorkspaceBody::Placeholder(ws) => {
-                crate::domains::placeholder::build_content::build_content(ws)
+                crate::domains::placeholder::build_content::build_content(ws, graph)
             }
         }
     }
 
-    /// Build content when the active body is GraphView — needs a scope root
-    /// from a sibling domain workspace (Structural preferred).
+    /// Build content when the active body is GraphView — scope root is the app root.
     pub fn build_graph_workspace_content(
         workspaces: &mut [Workspace],
         active_idx: usize,
         graph: &Graph,
+        root_id: hypernode::NodeId,
     ) -> Particle {
-        let scope_root = workspaces
-            .iter()
-            .find(|w| w.open_id == "structural_analysis")
-            .map(|w| w.node_id)
-            .or_else(|| {
-                workspaces
-                    .iter()
-                    .find(|w| w.open_id != "devtools_graph" && w.open_id != "home")
-                    .map(|w| w.node_id)
-            });
         match &mut workspaces[active_idx].body {
             WorkspaceBody::GraphView(ws) => {
-                crate::domains::graph_view::build_content::build_content(ws, graph, scope_root)
+                crate::domains::graph_view::build_content::build_content(ws, graph, Some(root_id))
             }
             _ => Particle::Source(hyper_ui::particles::SourceParticle::muted("")),
         }
@@ -281,18 +272,43 @@ fn static_icon(icon: &str) -> &'static str {
     }
 }
 
-/// Canary: UIView node count matches workspace + page + pod containers.
+/// Canary: UIView node count matches root + workspace + page + pod + component containers.
 fn debug_assert_container_parity(graph: &Graph, workspaces: &[Workspace]) {
     let uiview = graph
         .nodes
         .values()
         .filter(|n| n.space_class == SpaceClass::UIView)
         .count();
-    let mut expected = 0usize;
+    let roots = graph
+        .nodes
+        .values()
+        .filter(|n| n.space_class == SpaceClass::UIView && n.label == "root")
+        .count();
+    let mut expected = roots;
     for ws in workspaces {
         expected += 1; // workspace node
         if let Some(tree) = ws.page_tree() {
             expected += count_page_tree_containers(tree);
+            // Components + particle slots under each pod.
+            for page in &tree.pages {
+                for pod in &page.pods.pods {
+                    let components = crate::workspace::graph_containers::component_labels(
+                        graph,
+                        pod.node_id,
+                    );
+                    expected += components.len();
+                    for child in crate::workspace::graph_containers::binding_children(
+                        graph,
+                        pod.node_id,
+                    ) {
+                        if crate::workspace::graph_containers::particle_slot(graph, child)
+                            .is_some()
+                        {
+                            expected += 1;
+                        }
+                    }
+                }
+            }
         }
     }
     debug_assert_eq!(

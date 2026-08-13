@@ -1,5 +1,6 @@
 use super::rebuild_active::rebuild_active;
 use super::AppShell;
+use crate::workspace::graph_containers::bind_workspace_to_root;
 use crate::workspace::seed;
 use crate::workspace::workspace::Workspace;
 use crate::workspace::workspace_id::WorkspaceId;
@@ -18,6 +19,7 @@ pub fn add_workspace(shell: &mut AppShell) {
     let title = format!("{} {n}", seed::STRUCTURAL.label);
     let mut ws = Workspace::new_structural_titled(id, title, &mut shell.db, &mut shell.graph);
     ws.state.intent = Visibility::Hidden;
+    bind_workspace_to_root(&mut shell.graph, shell.root_id, ws.node_id);
     shell.workspaces.push(ws);
     shell.set_active(id);
     shell.persist_layout();

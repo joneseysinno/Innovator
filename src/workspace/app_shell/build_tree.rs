@@ -36,6 +36,7 @@ pub fn build_tree(shell: &mut AppShell) -> Particle {
                     &mut shell.workspaces,
                     idx,
                     &shell.graph,
+                    shell.root_id,
                 )
             }
             Some(idx) => shell.workspaces[idx].build_content(&shell.graph),

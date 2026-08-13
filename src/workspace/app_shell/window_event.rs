@@ -114,10 +114,10 @@ pub(crate) fn window_event(
                 .and_then(|a| a.header())
                 .map(|h| h.triggers.clone())
                 .unwrap_or_default();
-            let home_actions = shell
+            let home_launchers = shell
                 .active()
                 .and_then(|a| a.home_ws())
-                .map(|ws| ws.actions.clone())
+                .map(|ws| ws.launcher_triggers.clone())
                 .unwrap_or_default();
             let analysis = shell.active().and_then(|a| a.structural());
             let graph_view = shell.active().and_then(|a| a.graph_view());
@@ -300,8 +300,8 @@ pub(crate) fn window_event(
                                 dismiss_context_menu = true;
                             } else if let Some(sig) = tab_triggers.get(&id).copied() {
                                 app_signal = Some(sig);
-                            } else if let Some(sig) = home_actions.get(&id).copied() {
-                                app_signal = Some(sig);
+                            } else if let Some(open_id) = home_launchers.get(&id).copied() {
+                                app_signal = Some(AppSignal::OpenWorkspace(open_id));
                             } else if let Some(sig) = header_triggers.get(&id).copied() {
                                 ws_signal = Some(sig);
                             } else if let Some(sig) = nav_triggers.get(&id).copied() {
