@@ -17,9 +17,20 @@ pub fn build_pages(ws: &mut StructuralWorkspace, graph: &Graph) -> Particle {
     ws.icon_rail_triggers.clear();
     ws.pod_collapse_triggers.clear();
     ws.page_split_triggers.clear();
+    ws.page_template_menu_triggers.clear();
     ws.page_show_triggers.clear();
     ws.page_viewport_ids.clear();
     ws.analysis_header_status_id = None;
+
+    // Every Structural page needs header chrome for the type switcher + split.
+    for page in &mut ws.page_tree.pages {
+        if page.header.is_none() {
+            page.header = Some(hyper_ui::PageHeaderConfig {
+                height: 32.0,
+                slots: hyper_ui::PageHeaderSlots::None,
+            });
+        }
+    }
 
     let shown_ids: Vec<PageId> = ws
         .page_tree

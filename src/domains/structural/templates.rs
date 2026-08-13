@@ -5,6 +5,46 @@ use crate::workspace::seed::{PageSeed, STRUCTURAL};
 use hyper_ui::{PageId, PodId, TemplateId};
 use std::collections::HashMap;
 
+/// User-selectable editor types (excludes Generic — split default only).
+pub fn switchable_page_templates() -> &'static [TemplateId] {
+    &[NAVIGATION, ANALYSIS, RESULTS]
+}
+
+pub fn page_template_label(id: TemplateId) -> &'static str {
+    if id == NAVIGATION {
+        "Navigation"
+    } else if id == ANALYSIS {
+        "Analysis"
+    } else if id == RESULTS {
+        "Results"
+    } else if id == GENERIC {
+        "Empty"
+    } else {
+        id.as_str()
+    }
+}
+
+/// Compact glyph for the header type-switch opener (Blender-style).
+pub fn page_template_glyph(id: TemplateId) -> &'static str {
+    if id == NAVIGATION {
+        "N"
+    } else if id == ANALYSIS {
+        "A"
+    } else if id == RESULTS {
+        "R"
+    } else {
+        "·"
+    }
+}
+
+/// Seed layout used when switching a page to `template_id`.
+pub fn page_seed_for_template(template_id: TemplateId) -> Option<&'static PageSeed> {
+    STRUCTURAL
+        .pages
+        .iter()
+        .find(|page| page_template_from_label(page.label) == template_id)
+}
+
 pub fn page_templates_from_seeds(pages: &[PageSeed]) -> HashMap<PageId, TemplateId> {
     pages
         .iter()
@@ -40,12 +80,15 @@ pub fn template_from_str(id: &str) -> TemplateId {
         "navigation" => NAVIGATION,
         "analysis" => ANALYSIS,
         "results" => RESULTS,
+        "graph_view" => GRAPH_VIEW,
         "wall_list" => WALL_LIST,
         "wall_summary" => WALL_SUMMARY,
         "input_form" => INPUT_FORM,
         "wall_view" => WALL_VIEW,
         "results_table" => RESULTS_TABLE,
         "status" => STATUS,
+        "graph_canvas" => GRAPH_CANVAS,
+        "graph_inspector" => GRAPH_INSPECTOR,
         _ => GENERIC,
     }
 }
@@ -55,6 +98,7 @@ fn page_template_from_label(label: &str) -> TemplateId {
         "Navigation" => NAVIGATION,
         "Analysis" => ANALYSIS,
         "Results" => RESULTS,
+        "Graph View" => GRAPH_VIEW,
         _ => GENERIC,
     }
 }
@@ -67,6 +111,8 @@ fn pod_template_from_label(label: &str) -> TemplateId {
         "Wall View" => WALL_VIEW,
         "Results" => RESULTS_TABLE,
         "Status" => STATUS,
+        "Graph" => GRAPH_CANVAS,
+        "Inspector" => GRAPH_INSPECTOR,
         _ => GENERIC,
     }
 }

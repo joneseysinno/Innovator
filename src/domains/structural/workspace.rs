@@ -66,6 +66,8 @@ pub struct StructuralWorkspace {
     pub page_viewport_ids: HashMap<PageId, ParticleId>,
     /// Page header split triggers: ParticleId → PageId.
     pub page_split_triggers: HashMap<ParticleId, PageId>,
+    /// Page header editor-type switcher: ParticleId → PageId.
+    pub page_template_menu_triggers: HashMap<ParticleId, PageId>,
     /// Hidden-page rail triggers: ParticleId → PageId (bring into focus).
     pub page_show_triggers: HashMap<ParticleId, PageId>,
     /// Size-class-scoped page size overrides from seam drags.

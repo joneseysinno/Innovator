@@ -11,6 +11,7 @@ path = "src/main.rs"
 [dependencies]
 hyper-ui    = { workspace = true }
 hypernode   = { workspace = true }
+physarum    = { workspace = true }
 infinite-db = { workspace = true }
 winit       = { workspace = true }
 pollster    = { workspace = true }
@@ -25,6 +26,7 @@ members  = [
     "crates/hyper-ui",
     "crates/hypernode",
     "crates/p2p-swarm",
+    "crates/physarum",
 ]
 
 [workspace.dependencies]
@@ -32,6 +34,7 @@ members  = [
 hyper-ui  = { path = "crates/hyper-ui",  version = "0.1.0" }
 hypernode = { path = "crates/hypernode", version = "0.1.0" }
 p2p-swarm = { path = "crates/p2p-swarm", version = "0.1.0" }
+physarum  = { path = "crates/physarum",  version = "0.1.0" }
 
 # crates.io — used as published versions
 infinite-db  = "0.2"     # already on crates.io · do not add to crates/

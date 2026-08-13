@@ -18,6 +18,9 @@ pub fn rebuild_active(shell: &mut AppShell, renderer: &mut HyperRenderer) {
     if let Some(ws) = shell.active_mut().and_then(|a| a.structural_mut()) {
         let (_rects, report) = ws.layout_pages(pages_area, &focus, &viewport);
         shell.last_report = report;
+    } else if let Some(ws) = shell.active_mut().and_then(|a| a.graph_view_mut()) {
+        let (_rects, report) = ws.layout_pages(pages_area, &focus, &viewport);
+        shell.last_report = report;
     } else if let Some(ws) = shell.active_mut().and_then(|a| a.placeholder_mut()) {
         let (_rects, report) = ws.layout_pages(pages_area, &focus, &viewport);
         shell.last_report = report;

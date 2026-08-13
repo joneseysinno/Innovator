@@ -1,5 +1,6 @@
 //! App-level workspace — container state + typed body (no trait objects).
 
+use crate::domains::graph_view::GraphViewWorkspace;
 use crate::domains::home::HomeWorkspace;
 use crate::domains::placeholder::PlaceholderWorkspace;
 use crate::domains::structural::StructuralWorkspace;
@@ -26,6 +27,7 @@ pub struct Workspace {
 pub enum WorkspaceBody {
     Home(HomeWorkspace),
     Structural(StructuralWorkspace),
+    GraphView(GraphViewWorkspace),
     Placeholder(PlaceholderWorkspace),
 }
 
@@ -57,6 +59,11 @@ impl Workspace {
                 let ws = StructuralWorkspace::new(db, graph);
                 let node_id = ws.node_id;
                 (WorkspaceBody::Structural(ws), node_id)
+            }
+            "devtools_graph" => {
+                let ws = GraphViewWorkspace::from_seed(seed, graph);
+                let node_id = ws.node_id;
+                (WorkspaceBody::GraphView(ws), node_id)
             }
             _ => {
                 let ws = PlaceholderWorkspace::from_seed(seed, graph);
@@ -121,6 +128,7 @@ impl Workspace {
     pub fn page_tree(&self) -> Option<&PageTree> {
         match &self.body {
             WorkspaceBody::Structural(ws) => Some(&ws.page_tree),
+            WorkspaceBody::GraphView(ws) => Some(&ws.page_tree),
             WorkspaceBody::Placeholder(ws) => Some(&ws.page_tree),
             _ => None,
         }
@@ -129,6 +137,7 @@ impl Workspace {
     pub fn page_tree_mut(&mut self) -> Option<&mut PageTree> {
         match &mut self.body {
             WorkspaceBody::Structural(ws) => Some(&mut ws.page_tree),
+            WorkspaceBody::GraphView(ws) => Some(&mut ws.page_tree),
             WorkspaceBody::Placeholder(ws) => Some(&mut ws.page_tree),
             _ => None,
         }
@@ -140,9 +149,39 @@ impl Workspace {
             WorkspaceBody::Structural(ws) => {
                 crate::domains::structural::build_pages::build_pages(ws, graph)
             }
+            WorkspaceBody::GraphView(ws) => {
+                // Prefer `build_graph_workspace_content` (passes Structural scope root).
+                let active = Some(ws.node_id);
+                crate::domains::graph_view::build_content::build_content(ws, graph, active)
+            }
             WorkspaceBody::Placeholder(ws) => {
                 crate::domains::placeholder::build_content::build_content(ws)
             }
+        }
+    }
+
+    /// Build content when the active body is GraphView — needs a scope root
+    /// from a sibling domain workspace (Structural preferred).
+    pub fn build_graph_workspace_content(
+        workspaces: &mut [Workspace],
+        active_idx: usize,
+        graph: &Graph,
+    ) -> Particle {
+        let scope_root = workspaces
+            .iter()
+            .find(|w| w.open_id == "structural_analysis")
+            .map(|w| w.node_id)
+            .or_else(|| {
+                workspaces
+                    .iter()
+                    .find(|w| w.open_id != "devtools_graph" && w.open_id != "home")
+                    .map(|w| w.node_id)
+            });
+        match &mut workspaces[active_idx].body {
+            WorkspaceBody::GraphView(ws) => {
+                crate::domains::graph_view::build_content::build_content(ws, graph, scope_root)
+            }
+            _ => Particle::Source(hyper_ui::particles::SourceParticle::muted("")),
         }
     }
 
@@ -156,6 +195,20 @@ impl Workspace {
     pub fn structural_mut(&mut self) -> Option<&mut StructuralWorkspace> {
         match &mut self.body {
             WorkspaceBody::Structural(ws) => Some(ws),
+            _ => None,
+        }
+    }
+
+    pub fn graph_view(&self) -> Option<&GraphViewWorkspace> {
+        match &self.body {
+            WorkspaceBody::GraphView(ws) => Some(ws),
+            _ => None,
+        }
+    }
+
+    pub fn graph_view_mut(&mut self) -> Option<&mut GraphViewWorkspace> {
+        match &mut self.body {
+            WorkspaceBody::GraphView(ws) => Some(ws),
             _ => None,
         }
     }
@@ -222,6 +275,7 @@ fn static_icon(icon: &str) -> &'static str {
         "C" => "C",
         "R" => "R",
         "A" => "A",
+        "G" => "G",
         "○" => "·",
         _ => "·",
     }

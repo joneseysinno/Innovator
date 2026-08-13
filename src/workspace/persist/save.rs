@@ -35,6 +35,15 @@ fn capture_workspace(ws: &Workspace) -> PersistedWorkspace {
                 Some(s.next_page_id),
                 None,
             ),
+            WorkspaceBody::GraphView(g) => (
+                Some(capture_page_tree(&g.page_tree)),
+                capture_overrides(&g.page_overrides),
+                Some(g.focused_page.0),
+                None,
+                None,
+                None,
+                None,
+            ),
             WorkspaceBody::Placeholder(p) => (
                 Some(capture_page_tree(&p.page_tree)),
                 capture_overrides(&p.page_overrides),

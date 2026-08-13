@@ -1,6 +1,7 @@
 use crate::domains::structural::template_ids::GENERIC;
 use crate::pages::analysis::template::AnalysisTemplate;
 use crate::pages::generic::template::GenericTemplate;
+use crate::pages::graph_view::template::GraphViewTemplate;
 use crate::pages::navigation::template::NavigationTemplate;
 use crate::pages::results::template::ResultsTemplate;
 use crate::pages::template::PageTemplate;
@@ -12,6 +13,7 @@ pub fn page_templates() -> HashMap<TemplateId, Box<dyn PageTemplate>> {
         Box::new(NavigationTemplate),
         Box::new(AnalysisTemplate),
         Box::new(ResultsTemplate),
+        Box::new(GraphViewTemplate),
         Box::new(GenericTemplate),
     ];
     templates.into_iter().map(|template| (template.id(), template)).collect()

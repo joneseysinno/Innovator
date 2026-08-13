@@ -1,10 +1,13 @@
 use super::rebuild_active::rebuild_active;
 use super::AppShell;
+use crate::domains::structural::graph_wires::wire_workspace;
 use crate::domains::structural::template_ids::GENERIC;
+use crate::domains::structural::templates::{page_seed_for_template, pod_templates_from_seeds};
 use crate::domains::structural::PageSignal;
+use crate::workspace::from_seed::page_node_from_seed;
 use crate::workspace::graph_containers::dual_write_page_tree;
 use hyper_ui::particles::Particle;
-use hyper_ui::{PageId, Pod, PodId};
+use hyper_ui::{PageHeaderConfig, PageHeaderSlots, PageId, Pod, PodId, TemplateId};
 use hypernode::PropValue;
 
 pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
@@ -38,6 +41,7 @@ pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
                 .split_at_seam(seam_id.0, side, direction, new_id)
                 .is_some()
             {
+                ensure_page_header(ws, new_id);
                 ws.page_templates.insert(new_id, GENERIC);
                 ws.pod_templates.insert((new_id, PodId(0)), GENERIC);
                 bindings_changed = true;
@@ -47,6 +51,7 @@ pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
         PageSignal::SplitPage { page_id, direction } => {
             let new_id = ws.alloc_page_id();
             if ws.page_tree.split_page(page_id, direction, new_id).is_some() {
+                ensure_page_header(ws, new_id);
                 ws.page_templates.insert(new_id, GENERIC);
                 ws.pod_templates.insert((new_id, PodId(0)), GENERIC);
                 bindings_changed = true;
@@ -66,6 +71,15 @@ pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
         PageSignal::ResetRatio { seam_id } => {
             ws.reset_page_seam(seam_id.0 as usize, pages_area);
             rebuild = true;
+        }
+        PageSignal::SwitchTemplate {
+            page_id,
+            template_id,
+        } => {
+            if apply_switch_template(ws, page_id, template_id) {
+                bindings_changed = true;
+                rebuild = true;
+            }
         }
         PageSignal::ScrollToPod { .. } => unreachable!("handled above"),
     }
@@ -90,10 +104,12 @@ pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
                     }
                 }
             }
+            wire_workspace(graph, ws);
         }
     }
 
     shell.pending_context_menu = None;
+    shell.pending_template_menu = None;
     shell.context_menu_triggers.clear();
 
     if rebuild {
@@ -107,9 +123,69 @@ pub fn handle_page_signal(shell: &mut AppShell, signal: PageSignal) {
     }
 }
 
+fn ensure_page_header(ws: &mut crate::domains::structural::StructuralWorkspace, page_id: PageId) {
+    if let Some(page) = ws.page_tree.find_mut(page_id) {
+        if page.header.is_none() {
+            page.header = Some(PageHeaderConfig {
+                height: 32.0,
+                slots: PageHeaderSlots::None,
+            });
+        }
+    }
+}
+
+/// Reset a page to the seed layout for `template_id`. Clears template-local
+/// state that must not leak across editor types (pod layout, field builder).
+/// Workspace-level selection (`active_wall`) is preserved.
+fn apply_switch_template(
+    ws: &mut crate::domains::structural::StructuralWorkspace,
+    page_id: PageId,
+    template_id: TemplateId,
+) -> bool {
+    if ws.page_templates.get(&page_id) == Some(&template_id) {
+        return false;
+    }
+    let Some(seed) = page_seed_for_template(template_id) else {
+        return false;
+    };
+    let Some(page) = ws.page_tree.find_mut(page_id) else {
+        return false;
+    };
+
+    let node_id = page.node_id;
+    let fresh = page_node_from_seed(page_id, seed);
+    page.state.label = fresh.state.label;
+    page.state.icon = fresh.state.icon;
+    page.state.extent = fresh.state.extent;
+    page.pods = fresh.pods;
+    page.header = fresh.header.or(Some(PageHeaderConfig {
+        height: 32.0,
+        slots: PageHeaderSlots::None,
+    }));
+    page.icon_rail = fresh.icon_rail;
+    page.node_id = node_id;
+
+    ws.page_templates.insert(page_id, template_id);
+    ws.pod_templates.retain(|(pid, _), _| *pid != page_id);
+    // Remap seed pod templates onto this page id (seed helper indexes from 0).
+    let seeded = pod_templates_from_seeds(std::slice::from_ref(seed));
+    for ((_, pod_id), pod_template) in seeded {
+        ws.pod_templates.insert((page_id, pod_id), pod_template);
+    }
+
+    // Drop Analysis-local draft UI so it cannot reappear under another type.
+    ws.field_builder = None;
+    true
+}
+
 fn handle_scroll_to_pod(shell: &mut AppShell, idx: usize, page_id: PageId, pod_id: PodId) {
     let size_class = shell.size_class;
     let expanded = if let Some(ws) = shell.workspaces[idx].structural_mut() {
+        if let Some(page) = ws.page_tree.find_mut(page_id) {
+            page.pods.expand(pod_id, size_class);
+        }
+        true
+    } else if let Some(ws) = shell.workspaces[idx].graph_view_mut() {
         if let Some(page) = ws.page_tree.find_mut(page_id) {
             page.pods.expand(pod_id, size_class);
         }
@@ -128,6 +204,7 @@ fn handle_scroll_to_pod(shell: &mut AppShell, idx: usize, page_id: PageId, pod_i
     }
 
     shell.pending_context_menu = None;
+    shell.pending_template_menu = None;
     shell.context_menu_triggers.clear();
     shell.persist_layout();
 
@@ -140,6 +217,11 @@ fn handle_scroll_to_pod(shell: &mut AppShell, idx: usize, page_id: PageId, pod_i
     let vp_id = shell.workspaces[idx]
         .structural()
         .and_then(|ws| ws.page_viewport_ids.get(&page_id).copied())
+        .or_else(|| {
+            shell.workspaces[idx]
+                .graph_view()
+                .and_then(|ws| ws.page_viewport_ids.get(&page_id).copied())
+        })
         .or_else(|| {
             shell.workspaces[idx]
                 .placeholder()
@@ -165,6 +247,12 @@ fn apply_scroll_offset(
     offset: f32,
 ) {
     if let Some(ws) = workspace.structural_mut() {
+        if let Some(page) = ws.page_tree.find_mut(page_id) {
+            page.pods.scroll_offset = offset;
+        }
+        return;
+    }
+    if let Some(ws) = workspace.graph_view_mut() {
         if let Some(page) = ws.page_tree.find_mut(page_id) {
             page.pods.scroll_offset = offset;
         }

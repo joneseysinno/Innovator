@@ -1,4 +1,4 @@
-use hyper_ui::{PageId, PageSeamId, PageSide, PodId, SeamDirection};
+use hyper_ui::{PageId, PageSeamId, PageSide, PodId, SeamDirection, TemplateId};
 
 /// Signals that mutate the PageTree. Handled by the workspace, not the library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,5 +25,10 @@ pub enum PageSignal {
     ScrollToPod {
         page_id: PageId,
         pod_id: PodId,
+    },
+    /// Change a page's editor type (Blender-style area switch).
+    SwitchTemplate {
+        page_id: PageId,
+        template_id: TemplateId,
     },
 }

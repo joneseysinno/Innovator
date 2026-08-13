@@ -37,6 +37,8 @@ pub fn update_focus_from_pointer(shell: &mut AppShell, pos: Vec2) -> bool {
 
     if let Some(ws) = shell.workspaces[ws_idx].structural_mut() {
         ws.focused_page = page_id;
+    } else if let Some(ws) = shell.workspaces[ws_idx].graph_view_mut() {
+        ws.focused_page = page_id;
     } else if let Some(ws) = shell.workspaces[ws_idx].placeholder_mut() {
         ws.focused_page = page_id;
     }

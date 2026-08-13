@@ -5,13 +5,17 @@ use super::handle_page_signal::handle_page_signal;
 use super::handle_value_changed::handle_value_changed;
 use super::handle_workspace_signal::handle_workspace_signal;
 use super::page_context_menu::PageContextMenu;
+use super::page_template_menu::PageTemplateMenu;
 use super::rebuild_active::rebuild_active;
 use super::rebuild_seams::rebuild_seams;
 use super::sync_chrome_layouts::sync_chrome_layouts;
 use super::update_focus::update_focus_from_pointer;
 use super::AppShell;
+use crate::domains::graph_view::GraphFilterAction;
 use crate::domains::structural::template_ids::{INPUT_FORM, WALL_VIEW};
 use crate::pages::analysis::input_form::FormDensity;
+use crate::pages::graph_view::hit_test;
+use crate::workspace::app_signal::AppSignal;
 use crate::workspace::signal::WorkspaceSignal;
 use hyper_ui::layout::{arrange_particle, LayoutBox};
 use hyper_ui::{
@@ -86,6 +90,10 @@ pub(crate) fn window_event(
                         shell.renderer = Some(renderer);
                         window.request_redraw();
                     }
+                    winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F11) => {
+                        handle_app_signal(shell, AppSignal::OpenWorkspace("devtools_graph"));
+                        window.request_redraw();
+                    }
                     _ => {}
                 }
             }
@@ -112,6 +120,7 @@ pub(crate) fn window_event(
                 .map(|ws| ws.actions.clone())
                 .unwrap_or_default();
             let analysis = shell.active().and_then(|a| a.structural());
+            let graph_view = shell.active().and_then(|a| a.graph_view());
             let placeholder = shell.active().and_then(|a| a.placeholder());
             let wall_sinks = analysis.map(|ws| ws.wall_sinks.clone()).unwrap_or_default();
             let nav_triggers = analysis.map(|ws| ws.nav_triggers.clone()).unwrap_or_default();
@@ -129,19 +138,29 @@ pub(crate) fn window_event(
                 .map(|ws| ws.builder_slots.clone())
                 .unwrap_or_default();
             let wall_view_sink = analysis.and_then(|ws| ws.wall_view_sink);
+            let graph_view_sink = graph_view.and_then(|ws| ws.graph_view_sink);
+            let graph_filter_triggers = graph_view
+                .map(|ws| ws.filter_triggers.clone())
+                .unwrap_or_default();
             let icon_rail_triggers = analysis
                 .map(|ws| ws.icon_rail_triggers.clone())
+                .or_else(|| graph_view.map(|ws| ws.icon_rail_triggers.clone()))
                 .or_else(|| placeholder.map(|ws| ws.icon_rail_triggers.clone()))
                 .unwrap_or_default();
             let pod_collapse_triggers = analysis
                 .map(|ws| ws.pod_collapse_triggers.clone())
+                .or_else(|| graph_view.map(|ws| ws.pod_collapse_triggers.clone()))
                 .or_else(|| placeholder.map(|ws| ws.pod_collapse_triggers.clone()))
                 .unwrap_or_default();
             let page_split_triggers = analysis
                 .map(|ws| ws.page_split_triggers.clone())
                 .unwrap_or_default();
+            let page_template_menu_triggers = analysis
+                .map(|ws| ws.page_template_menu_triggers.clone())
+                .unwrap_or_default();
             let page_show_triggers = analysis
                 .map(|ws| ws.page_show_triggers.clone())
+                .or_else(|| graph_view.map(|ws| ws.page_show_triggers.clone()))
                 .or_else(|| placeholder.map(|ws| ws.page_show_triggers.clone()))
                 .unwrap_or_default();
             let context_menu_triggers = shell.context_menu_triggers.clone();
@@ -157,8 +176,11 @@ pub(crate) fn window_event(
             let mut builder_commit = None;
             let mut size_class_rebuild = false;
             let mut wall_view_ptr: Option<(PointerKind, Vec2)> = None;
+            let mut graph_view_ptr: Option<(PointerKind, Vec2)> = None;
+            let mut graph_filter: Option<GraphFilterAction> = None;
             let mut wheel_zoom: Option<(Vec2, f32)> = None;
             let mut open_context_menu: Option<PageContextMenu> = None;
+            let mut open_template_menu: Option<PageTemplateMenu> = None;
             let mut dismiss_context_menu = false;
             let mut page_ratio_action: Option<(usize, SeamRatioAction)> = None;
             let mut pod_divider_events: Vec<UiEvent> = Vec::new();
@@ -169,10 +191,15 @@ pub(crate) fn window_event(
                     .as_ref()
                     .map(|r| r.ui.input.cursor)
                     .unwrap_or(Vec2::ZERO);
-                let over_view = shell
+                let over_wall = shell
                     .active()
                     .and_then(|a| a.structural())
                     .and_then(|ws| ws.pod_rect(pages_area, WALL_VIEW));
+                let over_graph = shell
+                    .active()
+                    .and_then(|a| a.graph_view())
+                    .and_then(|ws| ws.canvas_rect(pages_area));
+                let over_view = over_wall.or(over_graph);
                 if let Some(view_rect) = over_view {
                     if view_rect.contains(cursor) {
                         let factor = match delta {
@@ -202,7 +229,7 @@ pub(crate) fn window_event(
                 ..
             } = other
             {
-                if shell.pending_context_menu.is_some() {
+                if shell.pending_context_menu.is_some() || shell.pending_template_menu.is_some() {
                     dismiss_context_menu = true;
                 }
                 let cursor = shell
@@ -258,13 +285,13 @@ pub(crate) fn window_event(
                         .ui
                         .page_seams
                         .cursor_icon()
-                        .or_else(|| renderer.ui.pod_dividers.cursor_icon());
-                    if let Some(icon) = icon {
-                        window.set_cursor(icon);
-                    }
+                        .or_else(|| renderer.ui.pod_dividers.cursor_icon())
+                        .unwrap_or(winit::window::CursorIcon::Default);
+                    window.set_cursor(icon);
                 }
 
                 let events = renderer.ui.input.route(other, &mut renderer.ui.tree);
+                let input_cursor = renderer.ui.input.cursor;
                 for ev in events {
                     match ev {
                         UiEvent::TriggerFired(id) => {
@@ -285,6 +312,8 @@ pub(crate) fn window_event(
                                 analysis_action = Some(action);
                             } else if let Some(key) = promote_props.get(&id).cloned() {
                                 promote_key = Some(key);
+                            } else if let Some(action) = graph_filter_triggers.get(&id).copied() {
+                                graph_filter = Some(action);
                             } else if let Some((page_id, pod_id)) =
                                 icon_rail_triggers.get(&id).copied()
                             {
@@ -299,6 +328,11 @@ pub(crate) fn window_event(
                             } else if let Some(page_id) = page_show_triggers.get(&id).copied() {
                                 let ws_id = shell.active().map(|a| a.state.id);
                                 if let Some(ws) = shell.active_mut().and_then(|a| a.structural_mut())
+                                {
+                                    ws.focused_page = page_id;
+                                    size_class_rebuild = true;
+                                } else if let Some(ws) =
+                                    shell.active_mut().and_then(|a| a.graph_view_mut())
                                 {
                                     ws.focused_page = page_id;
                                     size_class_rebuild = true;
@@ -322,6 +356,19 @@ pub(crate) fn window_event(
                                         page_id,
                                         direction,
                                     });
+                            } else if let Some(page_id) =
+                                page_template_menu_triggers.get(&id).copied()
+                            {
+                                let current = shell
+                                    .active()
+                                    .and_then(|a| a.structural())
+                                    .and_then(|ws| ws.page_templates.get(&page_id).copied())
+                                    .unwrap_or(crate::domains::structural::template_ids::GENERIC);
+                                open_template_menu = Some(PageTemplateMenu {
+                                    page_id,
+                                    cursor: input_cursor,
+                                    current,
+                                });
                             }
                         }
                         UiEvent::FieldCommit { id, value } => {
@@ -334,6 +381,8 @@ pub(crate) fn window_event(
                         UiEvent::SinkPointer { id, pos, kind } => {
                             if Some(id) == wall_view_sink {
                                 wall_view_ptr = Some((kind, pos));
+                            } else if Some(id) == graph_view_sink {
+                                graph_view_ptr = Some((kind, pos));
                             } else if matches!(kind, PointerKind::Up) {
                                 if let Some(node_id) = wall_sinks.get(&id).copied() {
                                     ws_signal = Some(WorkspaceSignal::WallSelected(node_id));
@@ -384,6 +433,9 @@ pub(crate) fn window_event(
 
             if !pod_divider_events.is_empty() {
                 let mut changed = false;
+                // page_tree_mut covers Structural / GraphView / Placeholder — same
+                // PageTree structural_mut exposes. Collapse failed because we never
+                // rebuilt the particle tree after toggling (see rebuild_active below).
                 if let Some(tree) = shell.active_mut().and_then(|a| a.page_tree_mut()) {
                     for ev in &pod_divider_events {
                         match ev {
@@ -441,18 +493,19 @@ pub(crate) fn window_event(
                 }
                 if changed {
                     shell.persist_layout();
+                    // Pod collapse/divider mutates PodList chrome — must rebuild the
+                    // particle tree. size_class_rebuild alone only refreshes Structural
+                    // when FormDensity changes, so collapse would otherwise stick silently.
                     if let Some(mut renderer) = shell.renderer.take() {
-                        if let Some(tree) = shell.active().and_then(|a| a.page_tree()) {
-                            rebuild_seams(tree, pages_area, &mut renderer);
-                        }
+                        rebuild_active(shell, &mut renderer);
                         shell.renderer = Some(renderer);
-                        size_class_rebuild = true;
                     }
                 }
             }
 
             if let Some(menu) = open_context_menu {
                 shell.pending_context_menu = Some(menu);
+                shell.pending_template_menu = None;
                 dismiss_context_menu = false;
                 // Rebuild so menu triggers exist in the particle tree.
                 if let Some(mut renderer) = shell.renderer.take() {
@@ -460,13 +513,39 @@ pub(crate) fn window_event(
                     shell.renderer = Some(renderer);
                 }
             }
-            if dismiss_context_menu && page_signal.is_none() {
+            if let Some(menu) = open_template_menu {
+                shell.pending_template_menu = Some(menu);
                 shell.pending_context_menu = None;
+                dismiss_context_menu = false;
+                if let Some(mut renderer) = shell.renderer.take() {
+                    rebuild_active(shell, &mut renderer);
+                    shell.renderer = Some(renderer);
+                }
+            }
+            if dismiss_context_menu && page_signal.is_none() {
+                let had_menu = shell.pending_context_menu.is_some()
+                    || shell.pending_template_menu.is_some();
+                shell.pending_context_menu = None;
+                shell.pending_template_menu = None;
                 shell.context_menu_triggers.clear();
+                if had_menu {
+                    if let Some(mut renderer) = shell.renderer.take() {
+                        rebuild_active(shell, &mut renderer);
+                        shell.renderer = Some(renderer);
+                    }
+                }
             }
 
             if let Some((kind, pos)) = wall_view_ptr {
                 apply_wall_view_pointer(shell, kind, pos);
+            }
+            if let Some((kind, pos)) = graph_view_ptr {
+                apply_graph_view_pointer(shell, kind, pos);
+                size_class_rebuild = true;
+            }
+            if let Some(action) = graph_filter {
+                apply_graph_filter(shell, action);
+                size_class_rebuild = true;
             }
 
             if size_class_rebuild {
@@ -534,17 +613,28 @@ fn render_frame(shell: &mut AppShell, renderer: &mut hyper_ui::HyperRenderer) {
     let layout_area = shell.layout_area();
     let has_header = shell.has_header;
     let pending_menu = shell.pending_context_menu.clone();
+    let pending_template = shell.pending_template_menu.clone();
 
     let spatial = shell
         .active()
-        .and_then(|a| a.structural())
-        .map(|ws| ws.wall_spatial.clone())
+        .and_then(|a| {
+            if let Some(ws) = a.structural() {
+                Some(ws.wall_spatial.clone())
+            } else {
+                a.graph_view().map(|ws| ws.spatial.clone())
+            }
+        })
         .unwrap_or_default();
 
     let wall_view_rect = shell
         .active()
         .and_then(|a| a.structural())
         .and_then(|ws| ws.pod_rect(pages_area, WALL_VIEW));
+    let graph_view_rect = shell
+        .active()
+        .and_then(|a| a.graph_view())
+        .and_then(|ws| ws.canvas_rect(pages_area));
+    let view_rect = wall_view_rect.or(graph_view_rect);
 
     while let Ok(msg) = shell.signal_rx.try_recv() {
         if let Some(id) = status_id {
@@ -565,10 +655,13 @@ fn render_frame(shell: &mut AppShell, renderer: &mut hyper_ui::HyperRenderer) {
         if let Some(menu) = pending_menu.as_ref() {
             let menu_rect = Rect::from_xywh(menu.cursor.x, menu.cursor.y, 180.0, 200.0);
             position_context_menu(root, menu_rect);
+        } else if let Some(menu) = pending_template.as_ref() {
+            let menu_rect = Rect::from_xywh(menu.cursor.x, menu.cursor.y, 160.0, 120.0);
+            position_context_menu(root, menu_rect);
         }
     }
 
-    if let Some(view_rect) = wall_view_rect {
+    if let Some(view_rect) = view_rect {
         renderer.scene.camera.set_screen_size(UVec2::new(
             view_rect.size.x.max(1.0) as u32,
             view_rect.size.y.max(1.0) as u32,
@@ -700,7 +793,109 @@ fn apply_wall_view_pointer(shell: &mut AppShell, kind: PointerKind, pos: Vec2) {
     }
 }
 
+fn apply_graph_view_pointer(shell: &mut AppShell, kind: PointerKind, pos: Vec2) {
+    let mut pan_delta = None;
+    let mut zoom = None;
+    let mut rebuild_spatial = false;
+
+    // Screen → world needs the camera; resolve hit before mutating workspace.
+    let world = shell
+        .renderer
+        .as_ref()
+        .map(|r| r.scene.camera.screen_to_world(pos));
+
+    {
+        let Some(ws) = shell.active_mut().and_then(|a| a.graph_view_mut()) else {
+            return;
+        };
+        match kind {
+            PointerKind::Down => {
+                if let Some(world) = world {
+                    if let Some(id) = hit_test(ws, world) {
+                        ws.state.selected = Some(id);
+                        ws.dragging = Some(id);
+                        ws.view_panning = false;
+                        rebuild_spatial = true;
+                    } else {
+                        ws.state.selected = None;
+                        ws.dragging = None;
+                        ws.view_panning = true;
+                        ws.view_last_pos = Some(pos);
+                        rebuild_spatial = true;
+                    }
+                } else {
+                    ws.view_panning = true;
+                    ws.view_last_pos = Some(pos);
+                }
+            }
+            PointerKind::Up => {
+                ws.view_panning = false;
+                ws.view_last_pos = None;
+                ws.dragging = None;
+            }
+            PointerKind::Move => {
+                if let Some(id) = ws.dragging {
+                    if let Some(world) = world {
+                        // Dragging a node pins it (sticky override over simulation).
+                        ws.state.pinned.insert(id);
+                        if let Some(p) = ws.state.positions.get_mut(&id) {
+                            *p = world;
+                            rebuild_spatial = true;
+                        }
+                    }
+                } else if ws.view_panning {
+                    if let Some(prev) = ws.view_last_pos {
+                        pan_delta = Some(Vec2::new(pos.x - prev.x, pos.y - prev.y));
+                    }
+                    ws.view_last_pos = Some(pos);
+                }
+            }
+            PointerKind::Scroll { delta_y } => {
+                let factor = if delta_y > 0.0 { 1.1 } else { 1.0 / 1.1 };
+                zoom = Some((pos, factor));
+            }
+        }
+    }
+
+    if let Some(renderer) = shell.renderer.as_mut() {
+        if let Some(delta) = pan_delta {
+            renderer.scene.camera.pan(delta);
+        }
+        if let Some((anchor, factor)) = zoom {
+            renderer.scene.camera.zoom_at(anchor, factor);
+        }
+    }
+
+    let _ = rebuild_spatial;
+}
+
+fn apply_graph_filter(shell: &mut AppShell, action: GraphFilterAction) {
+    let Some(ws) = shell.active_mut().and_then(|a| a.graph_view_mut()) else {
+        return;
+    };
+    match action {
+        GraphFilterAction::Scope(scope) => {
+            ws.state.scope = scope;
+            ws.state.seeded = false;
+            ws.state.alpha = 1.0;
+        }
+        GraphFilterAction::ToggleSpace(class) => ws.state.toggle_space_class(class),
+        GraphFilterAction::ToggleEdge(kind) => ws.state.toggle_edge_kind(kind),
+    }
+}
+
 fn maybe_update_size_class(shell: &mut AppShell) {
+    // Graph-view filter / selection changes need a content rebuild.
+    if shell.active().and_then(|a| a.graph_view()).is_some() {
+        let mut renderer = match shell.renderer.take() {
+            Some(r) => r,
+            None => return,
+        };
+        rebuild_active(shell, &mut renderer);
+        shell.renderer = Some(renderer);
+        return;
+    }
+
     let pages_area = shell.pages_area;
     let width = shell
         .active()

@@ -156,7 +156,7 @@ const STRUCTURAL_PAGES: &[PageSeed] = &[
         icon: "N",
         extent: Extent::new(280.0, 360.0, 0.0),
         pods: STRUCTURAL_NAV_PODS,
-        custom_header: false,
+        custom_header: true,
     },
     PageSeed {
         label: "Analysis",
@@ -170,7 +170,7 @@ const STRUCTURAL_PAGES: &[PageSeed] = &[
         icon: "R",
         extent: Extent::new(320.0, 560.0, 1.0),
         pods: STRUCTURAL_RESULTS_PODS,
-        custom_header: false,
+        custom_header: true,
     },
 ];
 
@@ -373,6 +373,38 @@ pub const ACCOUNTING: WorkspaceSeed = WorkspaceSeed {
     pages: ACCOUNTING_PAGES,
 };
 
+// ── Devtools Graph (F11) ────────────────────────────────────────────────────
+
+const DEVTOOLS_GRAPH_PODS: &[PodSeed] = &[
+    PodSeed {
+        label: "Graph",
+        icon: "G",
+        extent: pod_weight(0.70),
+        ios: &[IoSeed { label: "GraphView" }],
+    },
+    PodSeed {
+        label: "Inspector",
+        icon: "I",
+        extent: pod_weight(0.30),
+        ios: &[IoSeed { label: "Inspector" }],
+    },
+];
+const DEVTOOLS_GRAPH_PAGES: &[PageSeed] = &[PageSeed {
+    label: "Graph View",
+    icon: "G",
+    extent: PAGE_VIEWER,
+    pods: DEVTOOLS_GRAPH_PODS,
+    custom_header: false,
+}];
+
+pub const DEVTOOLS_GRAPH: WorkspaceSeed = WorkspaceSeed {
+    open_id: "devtools_graph",
+    label: "Graph",
+    icon: "G",
+    intent: Visibility::Hidden,
+    pages: DEVTOOLS_GRAPH_PAGES,
+};
+
 /// All workspace seeds in tab / launcher order. Home first.
 pub const ALL: &[WorkspaceSeed] = &[
     HOME,
@@ -383,6 +415,7 @@ pub const ALL: &[WorkspaceSeed] = &[
     CRANE,
     HR,
     ACCOUNTING,
+    DEVTOOLS_GRAPH,
 ];
 
 /// Non-Home seeds — Home launcher buttons.

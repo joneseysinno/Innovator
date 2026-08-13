@@ -1,0 +1,10 @@
+[package]
+name        = "physarum"
+version     = "0.1.0"
+edition     = "2024"
+description = "Conductivity-reinforcement network optimizer (Physarum / slime-mold model)"
+license     = "MIT OR Apache-2.0"
+keywords    = ["physarum", "network", "optimization", "conductivity"]
+categories  = ["algorithms", "science"]
+
+[dependencies]

@@ -34,6 +34,8 @@ impl AppShell {
             let mut chain = vec![ws.state.id];
             if let Some(structural) = ws.structural() {
                 chain.push(PageNode::container_id(structural.focused_page));
+            } else if let Some(gv) = ws.graph_view() {
+                chain.push(PageNode::container_id(gv.focused_page));
             } else if let Some(ph) = ws.placeholder() {
                 chain.push(PageNode::container_id(ph.focused_page));
             }

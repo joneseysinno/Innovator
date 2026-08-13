@@ -1,6 +1,7 @@
 //! Restore PersistedSession → live workspaces (seeds only when no save).
 
 use super::types::*;
+use crate::domains::graph_view::GraphViewWorkspace;
 use crate::domains::placeholder::{PlaceholderWorkspace, StubIoMap};
 use crate::domains::structural::{templates::template_from_str, StructuralWorkspace};
 use crate::workspace::graph_containers::{dual_write_page_tree, insert_uiview};
@@ -30,6 +31,13 @@ fn restore_workspace(pw: &PersistedWorkspace, db: &mut InfiniteDb, graph: &mut G
     let mut body = match open_id {
         "home" => WorkspaceBody::Home(crate::domains::home::HomeWorkspace::new()),
         "structural_analysis" => WorkspaceBody::Structural(StructuralWorkspace::new(db, graph)),
+        "devtools_graph" => {
+            let seed = seed::ALL
+                .iter()
+                .find(|s| s.open_id == open_id)
+                .unwrap_or(&seed::DEVTOOLS_GRAPH);
+            WorkspaceBody::GraphView(GraphViewWorkspace::from_seed(seed, graph))
+        }
         _ => {
             // Prefer seed skeleton for stub labels, then overwrite tree from save.
             let seed = seed::ALL
@@ -76,6 +84,16 @@ fn restore_workspace(pw: &PersistedWorkspace, db: &mut InfiniteDb, graph: &mut G
                 s.next_page_id = n;
             }
         }
+        WorkspaceBody::GraphView(g) => {
+            if let Some(tree) = &pw.page_tree {
+                g.page_tree = restore_page_tree(tree);
+                dual_write_page_tree(graph, g.node_id, &mut g.page_tree);
+            }
+            g.page_overrides = restore_overrides(&pw.page_overrides);
+            if let Some(fp) = pw.focused_page {
+                g.focused_page = PageId(fp);
+            }
+        }
         WorkspaceBody::Placeholder(p) => {
             if let Some(tree) = &pw.page_tree {
                 p.page_tree = restore_page_tree(tree);
@@ -95,6 +113,7 @@ fn restore_workspace(pw: &PersistedWorkspace, db: &mut InfiniteDb, graph: &mut G
     let node_id = match &body {
         WorkspaceBody::Home(_) => insert_uiview(graph, pw.state.label.clone()),
         WorkspaceBody::Structural(s) => s.node_id,
+        WorkspaceBody::GraphView(g) => g.node_id,
         WorkspaceBody::Placeholder(p) => p.node_id,
     };
 

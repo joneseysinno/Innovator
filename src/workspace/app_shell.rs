@@ -14,6 +14,7 @@ pub mod layout_areas;
 pub mod new;
 pub mod open_workspace;
 pub mod page_context_menu;
+pub mod page_template_menu;
 pub mod rebuild_active;
 pub mod rebuild_seams;
 pub mod resumed;
@@ -27,6 +28,7 @@ use crate::auth::session::Session;
 use crate::devtools::PreviewPreset;
 use crate::domains::structural::PageSignal;
 use crate::workspace::app_shell::page_context_menu::PageContextMenu;
+use crate::workspace::app_shell::page_template_menu::PageTemplateMenu;
 use crate::workspace::tab_strip::TabStripIO;
 use crate::workspace::workspace::Workspace;
 use hyper_ui::{
@@ -59,6 +61,7 @@ pub struct AppShell {
     pub(crate) pages_area: Rect,
     pub(crate) has_header: bool,
     pub pending_context_menu: Option<PageContextMenu>,
+    pub pending_template_menu: Option<PageTemplateMenu>,
     pub context_menu_triggers: HashMap<ParticleId, PageSignal>,
     /// DPI scale of the current monitor.
     pub scale_factor: f32,

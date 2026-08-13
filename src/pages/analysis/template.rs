@@ -23,8 +23,10 @@ impl PageTemplate for AnalysisTemplate {
             .and_then(|pod| results_for_pod(ctx.graph, pod));
         let (header, status_id) = build_analysis_page_header(
             ctx.page_id,
+            ANALYSIS,
             results,
             &mut ctx.workspace.page_split_triggers,
+            &mut ctx.workspace.page_template_menu_triggers,
         );
         ctx.workspace.analysis_header_status_id = Some(status_id);
         header

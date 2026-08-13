@@ -1,9 +1,10 @@
-//! Page modules — Navigation, Analysis, Results (Phase 2–4).
+//! Page modules — Navigation, Analysis, Results, Graph View.
 
 pub mod analysis;
 pub mod generic {
     pub mod template;
 }
+pub mod graph_view;
 pub mod navigation;
 pub mod placeholder;
 pub mod registry;

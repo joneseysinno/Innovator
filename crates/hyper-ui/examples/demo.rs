@@ -293,9 +293,12 @@ impl ApplicationHandler for DemoApp {
                         renderer.ui.layout(top);
                     }
                 }
-                if let Some(icon) = renderer.ui.pod_dividers.cursor_icon() {
-                    window.set_cursor(icon);
-                }
+                let icon = renderer
+                    .ui
+                    .pod_dividers
+                    .cursor_icon()
+                    .unwrap_or(winit::window::CursorIcon::Default);
+                window.set_cursor(icon);
 
                 if let WindowEvent::MouseWheel { delta, .. } = other {
                     let factor = match delta {

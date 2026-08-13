@@ -87,6 +87,7 @@ impl StructuralWorkspace {
             pod_collapse_triggers: HashMap::new(),
             page_viewport_ids: HashMap::new(),
             page_split_triggers: HashMap::new(),
+            page_template_menu_triggers: HashMap::new(),
             page_show_triggers: HashMap::new(),
             page_overrides: hyper_ui::Overrides::new(),
             focused_page: hyper_ui::PageId(0),

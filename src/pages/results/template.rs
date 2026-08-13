@@ -15,7 +15,12 @@ impl PageTemplate for ResultsTemplate {
     }
 
     fn build_header(&self, ctx: &mut TemplateCtx<'_>) -> Particle {
-        build_split_only_header(ctx.page_id, &mut ctx.workspace.page_split_triggers)
+        build_split_only_header(
+            ctx.page_id,
+            RESULTS,
+            &mut ctx.workspace.page_split_triggers,
+            &mut ctx.workspace.page_template_menu_triggers,
+        )
     }
 
     fn build_body(&self, ctx: &mut TemplateCtx<'_>) -> Particle {
